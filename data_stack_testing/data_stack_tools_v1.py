@@ -246,6 +246,54 @@ def fetch_sentinel2(aoi, start_date_list, s2_params):
     return median_stack
 
 
+def fetch_topography(aoi):
+    """
+    Get static topographic layers 
+    elevation, slope and aspect from the NASA SRTM product 30m ('USGS/SRTMGL1_003').
+    Also gets 'Global SRTM Topographic Diversity' ('CSP/ERGo/1_0/Global/SRTM_topoDiversity'), 
+    but I'm not convinced this is useful - 270m, looks a lot like coarse res slope/elevation
+
+    :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent 
+    :return: ee.image.Image, stack of composite images with bands: ['elevation', 'aspect', 'slope', 'topographic_diversity']     
+    """
+    print('fetch_topography(): hi!')
+    #datasets & bands
+    srtm = ee.Image('USGS/SRTMGL1_003')
+    ds_topodiv = ee.Image('CSP/ERGo/1_0/Global/SRTM_topoDiversity')
+    elevation = srtm.select('elevation').clip(aoi.geometry())
+    topodiversity = ds_topodiv.select('constant').clip(aoi.geometry()).rename('topographic_diversity')
+    
+    # derive slope & aspect
+    slope = ee.Terrain.slope(elevation)
+    aspect = ee.Terrain.aspect(elevation)
+
+    # compile
+    stack = elevation.addBands(slope)
+    stack = stack.addBands(aspect)
+    stack = stack.addBands(topodiversity)
+    print('fetch_topography(): bye!')
+    return stack
+
+
+def map_topography(stack, lat=51.85, lon=27.8, elv_rng=(100.0,200.0), asp_rng=(0.0,360.0), slp_rng=(0.0, 10.0), topdiv_rng=(0,0.15)):
+    """
+    Quick mapping function for debugging topo data 
+    : param stack: Image, stack containing topographic composite images for AOI
+    : param lat: float, map central latitude
+    : param lon: float, map central longitude
+    : params elv_rng, asp_rng, slp_rng, topdiv_rng: tuples of floats, min/max z-values for elevation, aspect, slope, and topo diversity, respectively. 
+                                                    Defaults are suited to the Polesia training AOI    
+    : return : 
+    """
+    Map = geemap.Map(center=(lat, lon), zoom=9)
+    Map.add_basemap('SATELLITE')
+    Map.addLayer(stack, {'min': elv_rng[0],'max': elv_rng[1], 'bands': ['elevation']}, 'elevation')
+    Map.addLayer(stack, {'min': asp_rng[0],'max': asp_rng[1], 'bands': ['aspect']}, 'aspect')
+    Map.addLayer(stack, {'min': slp_rng[0],'max': slp_rng[1], 'bands': ['slope']}, 'slope')
+    Map.addLayer(stack, {'min': topdiv_rng[0],'max': topdiv_rng[1], 'bands': ['topographic_diversity']}, 'topographic_diversity')
+    return Map
+
+
 def map_sentinel1(stack, start_date_list, lat=51.85, lon=27.8):
     """
     Quick mapping function for debugging S1 data (NOTE: VH duplicated in Green & Blue)
@@ -288,7 +336,8 @@ def create_data_stack(aoi, start_date_list, s2_params):
     """ 
     convience function to compile and combine all distinct dataset sub-stacks
     * Sentinel 1 data bands: 'VV', 'VH' [monthly]
-    * Sentinel 2 data bands:'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12' [monthly]
+    * Sentinel 2 data bands: 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12' [monthly]
+    * topography data bands: slope, aspect & elevation [static, 30m SRTM derived], topographic diversity [static, 270m]
 
     :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent 
     :param start_date_list: list, strings used to define start of each month, expects 'YYYY-MM-01' format
@@ -298,6 +347,10 @@ def create_data_stack(aoi, start_date_list, s2_params):
     """
     s1_stack = fetch_sentinel1(aoi, start_date_list)
     s2_stack = fetch_sentinel2(aoi, start_date_list, s2_params)
+    topo_stack = fetch_topography(aoi)
+
     combined_stack = s1_stack.addBands(s2_stack)
+    combined_stack = combined_stack.addBands(topo_stack)
+
     return combined_stack
 
