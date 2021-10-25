@@ -225,8 +225,8 @@ fp_target_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classif_area.sh
 fp_export_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classified/"
 
 # Two different versions of training data
-fp_train_points_simple = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_2000.shp"
-fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_1750.shp"
+fp_train_points_simple = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_500.shp"
+fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_500.shp"
 
 label = 'VALUE'  # Name of the classes column in your training data
 scale = 20  # Sets the output scale of the analysis
