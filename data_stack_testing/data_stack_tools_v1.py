@@ -514,8 +514,8 @@ def fetch_topography(aoi):
     aspect = ee.Terrain.aspect(elevation)
 
     # compile
-    stack = elevation.addBands(slope)
-    stack = stack.addBands(aspect)
+    #stack = elevation.addBands(slope)
+    stack = slope.addBands(aspect)
     #stack = stack.addBands(topodiversity)
     print('fetch_topography(): bye!')
     return stack
@@ -607,6 +607,7 @@ def create_data_stack_v2(aoi, date_list, s2_params):
     * Sentinel 1 data bands: 'VV', 'VH' 
     * Sentinel 2 data bands: variable from 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12' 
     * topography data bands: slope, aspect & elevation [static, 30m SRTM derived]
+    > Changed topo to just be slope and aspect
 
     :: NEW FOR V2 ::
     * compositing period for S1 & S2 need start and end dates explicitly stated in 'date_list' (monthly composites no longer assumed).

@@ -182,8 +182,8 @@ def accuracy_assessment(clf, test, export_name):
     training_overall_accuracy = np.around(trainAccuracy.accuracy().getInfo(), decimals=4)
     print('Training data performance overall accuracy:', training_overall_accuracy)
 
-    kappa_train = np.around(trainAccuracy.kappa().getInfo(), decimals=4)
-    print('Kappa coefficient for training data (-1 to 1) =', kappa_train)
+    #kappa_train = np.around(trainAccuracy.kappa().getInfo(), decimals=4)
+    #print('Kappa coefficient for training data (-1 to 1) =', kappa_train)
 
     #producers_train = trainAccuracy.producersAccuracy().getInfo()
     #table_writer(producers_train, 'Producers_acc_train_', export_name)
@@ -206,8 +206,8 @@ def accuracy_assessment(clf, test, export_name):
     test_overall_accuracy = np.around(test_accuracy.accuracy().getInfo(), decimals=4)
     print('Test data performance overall accuracy:', test_overall_accuracy)
 
-    kappa_test = np.around(test_accuracy.kappa().getInfo(), decimals=4)
-    print('Kappa coefficient for test data (-1 to 1) =', kappa_test)
+    #kappa_test = np.around(test_accuracy.kappa().getInfo(), decimals=4)
+    #print('Kappa coefficient for test data (-1 to 1) =', kappa_test)
 
     #producers_test = test_accuracy.producersAccuracy().getInfo()
     #table_writer(producers_test, 'Producers_acc_test_', export_name)
@@ -225,23 +225,25 @@ fp_target_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classif_area.sh
 fp_export_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classified/"
 
 # Two different versions of training data
-fp_train_points_simple = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_500.shp"
-fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_500.shp"
+fp_train_points_simple = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_1000_v3.shp"
+fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_2000_v3.shp"
 
 label = 'VALUE'  # Name of the classes column in your training data
 scale = 20  # Sets the output scale of the analysis
 
 aoi = geemap.shp_to_ee(fp_train_ext)
-date_list = [('2018-12-01', '2019-02-01'), ('2019-05-01', '2019-05-31')]
+date_list = [('2017-12-01', '2018-02-01'), ('2018-04-01', '2018-04-30'),
+             ('2018-05-01', '2018-05-31'), ('2018-06-01', '2018-06-30'),
+             ('2018-09-01', '2018-09-30'), ('2018-08-01', '2018-08-30')]
 
 s2_params = {
     'CLOUD_FILTER': 60,  # int, max cloud coverage (%) permitted in a scene
     'CLD_PRB_THRESH': 40,  # int, 's2cloudless' 'probability' band value > thresh = cloud
     'NIR_DRK_THRESH': 0.15,  # float, if Band 8 (NIR) < NIR_DRK_THRESH = possible shadow
     'CLD_PRJ_DIST': 1,  # int, max distance [TODO: km or 100m?] from cloud edge for possible shadow
-    'BUFFER': 100,  # int, distance (m) used to buffer cloud edges
-    # 'S2BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12'] #list of str, which S2 bands to return?
-    'S2BANDS': ['B2', 'B3', 'B4', 'B6', 'B8', 'B11']  # list of str, which S2 bands to return?
+    'BUFFER': 50,  # int, distance (m) used to buffer cloud edges
+    # 'S2BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12']
+    'S2BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B11', 'B12']  # list of str, which S2 bands to return?
 }
 
 
