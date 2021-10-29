@@ -216,6 +216,17 @@ def accuracy_assessment(clf, test, export_name):
     #table_writer(consumers_test, 'Consumers_acc_test_', export_name)
 
 
+def feature_importance_analysis(clf, export_name):
+    dict_featImportance = clf.explain().getInfo()
+    importance = dict_featImportance.get('importance')
+
+    importance_csv = os.path.join(fp_export_dir, 'Feature_importance'+export_name+'.csv')
+    with open(importance_csv, 'w') as f:
+        writer = csv.writer(f)
+        for row in importance.items():
+            writer.writerow(row)
+
+
 """
 Global paths and variable settings
 """
@@ -271,10 +282,12 @@ numBands = trainingbands.length()
 """
 Random forest classification
 """
-trees_test = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150]
+trees_test = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 175, 200]
 for i in trees_test:
-    clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_trees_'+str(i), i)
-    accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex_trees'+str(i))
+    clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_trees_'+str(175), 175)
+    accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex_trees'+str(175))
+
+feature_importance_analysis(clf_rf_complex, 'RF_complex_trees'+str(i))
 
 
 """
