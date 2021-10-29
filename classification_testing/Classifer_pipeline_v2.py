@@ -42,7 +42,7 @@ def load_sample_training_data(fp_train_points):
     return train, test
 
 
-def apply_random_forest(train, export_name):
+def apply_random_forest(train, export_name, trees_num):
     """
     https://developers.google.com/earth-engine/apidocs/ee-classifier-smilerandomforest
 
@@ -51,7 +51,7 @@ def apply_random_forest(train, export_name):
     It downloads to the local export directory the applied RF classification.
     """
     print('Setting up random forest classifier for', export_name+'...')
-    init_params = {"numberOfTrees": 100,
+    init_params = {"numberOfTrees": trees_num,
                    "variablesPerSplit": None,
                    "minLeafPopulation": 1,
                    "bagFraction": 0.5,
@@ -160,7 +160,7 @@ def apply_gradient_tree_boost(train, export_name):
     file_out = fp_export_dir+export_name+'.tif'
     roi = target_area.geometry()
     geemap.ee_export_image(classified, filename=file_out, scale=scale, file_per_band=False, region=roi)
-    print('Random forest classification complete for', export_name+'!')
+    print('GTB classification complete for', export_name+'!')
     return clf
 
 
@@ -226,7 +226,7 @@ fp_export_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classified/"
 
 # Two different versions of training data
 fp_train_points_simple = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_1000_v3.shp"
-fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_2000_v3.shp"
+fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_2500_v4.shp"
 
 label = 'VALUE'  # Name of the classes column in your training data
 scale = 20  # Sets the output scale of the analysis
@@ -260,24 +260,22 @@ print('Training bands are:', trainingbands)
 train_simple, test_simple = load_sample_training_data(fp_train_points_simple)
 train_complex, test_complex = load_sample_training_data(fp_train_points_complex)
 
+"""
+Class spectral analysis
+"""
+numBands = trainingbands.length()
+
+
+
 
 """
 Random forest classification
 """
-clf_rf_simple = apply_random_forest(train_simple, 'RF_simple')
-accuracy_assessment(clf_rf_simple, test_simple, 'RF_simple')
+trees_test = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150]
+for i in trees_test:
+    clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_trees_'+str(i), i)
+    accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex_trees'+str(i))
 
-clf_rf_complex = apply_random_forest(train_complex, 'RF_complex')
-accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex')
-
-"""
-CART classification
-"""
-clf_cart_simple = apply_CART(train_simple, 'CART_simple')
-accuracy_assessment(clf_cart_simple, test_simple, 'CART_simple')
-
-clf_cart_complex = apply_CART(train_complex, 'CART_complex')
-accuracy_assessment(clf_cart_complex, test_complex, 'CART_complex')
 
 """
 SVM classification

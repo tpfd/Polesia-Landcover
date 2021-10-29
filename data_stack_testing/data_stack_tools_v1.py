@@ -625,4 +625,37 @@ def create_data_stack_v2(aoi, date_list, s2_params):
     combined_stack = s1_stack.addBands(s2_stack)
     combined_stack = combined_stack.addBands(topo_stack)
 
-    return combined_stack
+    # Normalise to between 0 and 1 usning min-max.
+    print('Calculating min-max values for each band...')
+    max_dict, min_dict = get_min_max(combined_stack)
+
+    print('Normalising all bands with min-max...')
+    counter = 0
+    band_names = combined_stack.bandNames().getInfo()
+    for i in band_names:
+        counter = counter + 1
+        norm_band = combined_stack.select(i).unitScale(min_dict.get(i), max_dict.get(i))
+        if counter == 1:
+            normed_combined_stack = norm_band
+        else:
+            normed_combined_stack = normed_combined_stack.addBands(norm_band)
+    print('Normalisation complete!')
+    return normed_combined_stack
+
+
+def get_min_max(stack):
+    max_dict = stack.reduceRegion(**{
+        'reducer': ee.Reducer.max(),
+        'geometry': stack.geometry(),
+        'scale': 20,
+        'maxPixels': 1e9,
+        'bestEffort': True}).getInfo()
+
+    min_dict = stack.reduceRegion(**{
+        'reducer': ee.Reducer.min(),
+        'geometry': stack.geometry(),
+        'scale': 20,
+        'maxPixels': 1e9,
+        'bestEffort': True}).getInfo()
+    return max_dict, min_dict
+

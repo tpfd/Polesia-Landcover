@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 Complex swamps
 """
 # Load shapefile complex
-fpath = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_swamp_points_v3.shp"
+fpath = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_swamp_points_v4.shp"
 raw_df = gpd.read_file(fpath)
 
 class_count = raw_df['VALUE'].value_counts()
@@ -16,20 +16,19 @@ class_count.plot(kind='bar', legend=False, title='Complex training points - all'
 plt.show()
 
 # Re-sample to 1750 samples
-sample_amounts = {1: 2000,
-                  2: 2000,
-                  3: 2000,
-                  4: 2000,
-                  5: 2000,
-                  6: 2000,
-                  7: 2000,
-                  8: 2000,
-                  9: 2000,
-                  10: 2000,
-                  11: 2000,
-                  12: 2000,
-                  13: 2000,
-                  14: 2000}
+sample_amounts = {1: 500,
+                  2: 500,
+                  3: 500,
+                  4: 500,
+                  5: 500,
+                  6: 500,
+                  7: 500,
+                  8: 500,
+                  9: 500,
+                  10: 500,
+                  11: 500,
+                  12: 500,
+                  13: 500}
 
 resampled_df = (raw_df.groupby('VALUE').apply(lambda g: g.sample(n=sample_amounts[g.name],
                                                                  replace=len(g) < sample_amounts[g.name])).droplevel(0))
@@ -38,7 +37,7 @@ class_count.plot(kind='bar', legend=False, title='Complex training points - resa
 plt.show()
 
 # Export to new .shp
-resampled_df.to_file("D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_2000_v3.shp")
+resampled_df.to_file("D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_500_v4.shp")
 
 
 """
