@@ -2,6 +2,7 @@
 Functions to run the v2 of a classifier pipeline
 """
 import sys
+import pandas as pd
 # sys.path.append("/home/markdj/repos/Polesia-Landcover/data_stack_testing/")
 sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/data_stack_testing/")
 import ee
@@ -21,7 +22,7 @@ training/test set. So no need to test accuracy for every tile.
 """
 
 
-def load_sample_training_data(fp_train_points):
+def load_sample_training_data(fp_train_points, target_bands):
     """
     This function takes a filepath to a point shape file of your training data.
     It returns a training and test sampled dataset with a 70-30 split.
@@ -29,20 +30,20 @@ def load_sample_training_data(fp_train_points):
     """
     print('Loading training data:', fp_train_points+'...')
     training_points = geemap.shp_to_ee(fp_train_points)
-    data = stack.select(trainingbands).sampleRegions(collection=training_points,
-                                                     properties=[label],
-                                                     scale=scale)
+    data = stack.select(target_bands).sampleRegions(collection=training_points,
+                                                    properties=[label],
+                                                    scale=scale)
 
     # Split into train and test
     split = 0.7
     data = data.randomColumn(seed=0)
-    train = data.filter(ee.Filter.lt('random',split))
-    test = data.filter(ee.Filter.gte('random',split))
+    train = data.filter(ee.Filter.lt('random', split))
+    test = data.filter(ee.Filter.gte('random', split))
     print('Training data loaded and ready!')
     return train, test
 
 
-def apply_random_forest(train, export_name, trees_num):
+def apply_random_forest(train, export_name, trees_num, training_bands):
     """
     https://developers.google.com/earth-engine/apidocs/ee-classifier-smilerandomforest
 
@@ -58,19 +59,19 @@ def apply_random_forest(train, export_name, trees_num):
                    "maxNodes": None,
                    "seed": 0}
 
-    clf = ee.Classifier.smileRandomForest(**init_params).train(train, label, trainingbands)
+    clf = ee.Classifier.smileRandomForest(**init_params).train(train, label, training_bands)
 
     # Carry out the Random Forest
-    print('Using random forest to classify region...')
-    target_area = geemap.shp_to_ee(fp_target_ext)
-    target_stack = stack.clip(target_area)
-    classified = target_stack.select(trainingbands).classify(clf)
+    #print('Using random forest to classify region...')
+    #target_area = geemap.shp_to_ee(fp_target_ext)
+    #target_stack = stack.clip(target_area)
+    #classified = target_stack.select(trainingbands).classify(clf)
 
     # Export results to local
-    file_out = fp_export_dir+export_name+'.tif'
-    roi = target_area.geometry()
-    geemap.ee_export_image(classified, filename=file_out, scale=scale, file_per_band=False, region=roi)
-    print('Random forest classification complete for', export_name+'!')
+    #file_out = fp_export_dir+export_name+'.tif'
+    #roi = target_area.geometry()
+    #geemap.ee_export_image(classified, filename=file_out, scale=scale, file_per_band=False, region=roi)
+    #print('Random forest classification complete for', export_name+'!')
     return clf
 
 
@@ -214,6 +215,7 @@ def accuracy_assessment(clf, test, export_name):
 
     #consumers_test = test_accuracy.consumersAccuracy().getInfo()
     #table_writer(consumers_test, 'Consumers_acc_test_', export_name)
+    return test_overall_accuracy
 
 
 def feature_importance_analysis(clf, export_name):
@@ -227,6 +229,22 @@ def feature_importance_analysis(clf, export_name):
             writer.writerow(row)
 
 
+def spectral_stats(band_names_list, training_data, export_name):
+    print('Generating spectral means...')
+    numBands = band_names_list.length()
+    bandsWithClass = band_names_list.add('VALUE')
+    classIndex = bandsWithClass.indexOf('VALUE')
+
+    gcpStats = training_data.reduceColumns(**{
+        'selectors': bandsWithClass,
+        'reducer': ee.Reducer.mean().repeat(numBands).group(classIndex)}).getInfo()
+
+    print('Exporting means...')
+    spectral_csv = os.path.join(fp_export_dir, 'Class_spectral_mean'+export_name+'.csv')
+    pd.DataFrame(gcpStats).to_csv(spectral_csv, index=False)
+    print('Done!')
+
+
 """
 Global paths and variable settings
 """
@@ -235,9 +253,8 @@ fp_train_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Project_area.shp
 fp_target_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classif_area.shp"  # Area to be classified
 fp_export_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classified/"
 
-# Two different versions of training data
-fp_train_points_simple = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_1000_v3.shp"
-fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_2500_v4.shp"
+# Set desired primary training data
+fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_2000_v4.shp"
 
 label = 'VALUE'  # Name of the classes column in your training data
 scale = 20  # Sets the output scale of the analysis
@@ -267,44 +284,75 @@ band_names = stack.bandNames()
 trainingbands = band_names.getInfo()
 print('Training bands are:', trainingbands)
 
+# Select bands from the stack for use
+trainingbands_refined = [trainingbands[i] for i in [0, 1, 3, 13, 15,
+                                                    16, 17, 18, 21, 22,
+                                                    23, 24, 27, 28, 29,
+                                                    31, 32, 36, 37, 39,
+                                                    40, 44, 45, 49, 50,
+                                                    53, 54, 58, 59, 63,
+                                                    64, 65]]
+print('Training bands refined are:', trainingbands_refined)
+stack = stack.select(trainingbands_refined)
+
 # Load and sample the training data
-train_simple, test_simple = load_sample_training_data(fp_train_points_simple)
-train_complex, test_complex = load_sample_training_data(fp_train_points_complex)
+train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands_refined)
+
 
 """
 Class spectral analysis
 """
-numBands = trainingbands.length()
-
-
+# Get spectral stats
+spectral_stats(trainingbands_refined, train_complex, '_stackV2_2000S_150T')
 
 
 """
 Random forest classification
 """
-trees_test = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 175, 200]
-for i in trees_test:
-    clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_trees_'+str(175), 175)
-    accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex_trees'+str(175))
+# First attempt classification
+clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_stackv2' + '_2000S_150T', 150, trainingbands_refined)
+acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex_stackv2' + '_2000S_150T')
 
-feature_importance_analysis(clf_rf_complex, 'RF_complex_trees'+str(i))
+
+# Test for number of trees optimization
+trees_test = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200, 225, 250]
+result_trees = []
+for i in trees_test:
+    clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_trees_'+str(i), i, trainingbands_refined)
+    acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_stackv2_trees'+str(i))
+    result_trees.append(acc_val)
+
+
+# Test for training data size optimization
+training_test = [500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 2800, 2850, 2900, 3000]
+result_trainsize = []
+for i in training_test:
+    fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_"+str(i)\
+                                                                                                             +"_v4.shp"
+    train_complex, test_complex = load_sample_training_data(fp_train_points_complex)
+    try:
+        clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_train_'+str(i), 150, trainingbands_refined)
+        acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_stackv2_train_'+str(i))
+        result_trainsize.append(acc_val)
+    except:
+        acc_val = np.nan
+        result_trainsize.append(acc_val)
+        continue
+
+
+# Feature importance analysis
+feature_importance_analysis(clf_rf_complex, 'RF_complex_stackv2')
 
 
 """
 SVM classification
 """
-clf_svm_simple = apply_SVM(train_simple, 'SVM_simple')
-accuracy_assessment(clf_svm_simple, test_simple, 'SVM_simple')
-
 clf_svm_complex = apply_SVM(train_complex, 'SVM_complex')
 accuracy_assessment(clf_svm_complex, test_complex, 'SVM_complex')
 
 """
 Gradient tree boost classification
 """
-clf_gtb_simple = apply_gradient_tree_boost(train_simple, 'GTB_simple')
-accuracy_assessment(clf_gtb_simple, test_simple, 'GTB_simple')
-
 clf_gtb_complex = apply_gradient_tree_boost(train_complex, 'GTB_complex')
 accuracy_assessment(clf_gtb_complex, test_complex, 'GTB_complex')
 
