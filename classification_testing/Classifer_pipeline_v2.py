@@ -3,6 +3,7 @@ Functions to run the v2 of a classifier pipeline
 """
 import sys
 import pandas as pd
+import matplotlib.pyplot as plt
 # sys.path.append("/home/markdj/repos/Polesia-Landcover/data_stack_testing/")
 sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/data_stack_testing/")
 import ee
@@ -246,6 +247,13 @@ def spectral_stats(band_names_in, training_data, export_name):
     print('Done!')
 
 
+def line_plot(x, y, x_label):
+    plt.plot(x, y, color='red', marker='x')
+    plt.xlabel(x_label)
+    plt.ylabel('Accuracy vs test (%)')
+    plt.savefig(fp_export_dir+x_label+'.png')
+
+
 """
 Global paths and variable settings
 """
@@ -261,9 +269,10 @@ label = 'VALUE'  # Name of the classes column in your training data
 scale = 20  # Sets the output scale of the analysis
 
 aoi = geemap.shp_to_ee(fp_train_ext)
-date_list = [('2017-12-01', '2018-02-01'), ('2018-04-01', '2018-04-30'),
-             ('2018-05-01', '2018-05-31'), ('2018-06-01', '2018-06-30'),
-             ('2018-09-01', '2018-09-30'), ('2018-08-01', '2018-08-30')]
+date_list = [('2018-03-01', '2018-03-30'),
+             ('2018-04-01', '2018-04-30'), ('2018-05-01', '2018-05-31'),
+             ('2018-06-01', '2018-06-30'), ('2018-07-01', '2018-07-30'),
+             ('2018-10-01', '2018-10-30')]
 
 s2_params = {
     'CLOUD_FILTER': 60,  # int, max cloud coverage (%) permitted in a scene
@@ -293,7 +302,7 @@ train_complex, test_complex = load_sample_training_data(fp_train_points_complex,
 Class spectral analysis
 """
 # Get spectral stats
-spectral_stats(band_names, train_complex, '_indexDev_2000S_150T')
+#spectral_stats(band_names, train_complex, '_indexDev_2000S_200T')
 
 
 """
@@ -304,13 +313,18 @@ clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_stackv3' + '_200
 acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex_stackv3' + '_2000S_150T')
 
 # Test for number of trees optimization
-trees_test = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200, 225, 250]
+trees_test = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400]
 result_trees = []
 for i in trees_test:
-    clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_trees_'+str(i), i, trainingbands)
-    acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_stackv2_trees'+str(i))
-    result_trees.append(acc_val)
-
+    try:
+        clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_trees_'+str(i), i, trainingbands)
+        acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_stackv2_trees'+str(i))
+        result_trees.append(acc_val)
+    except:
+        acc_val = np.nan
+        result_trees.append(acc_val)
+        continue
+line_plot(trees_test, result_trees, 'Number of trees')
 
 # Test for training data size optimization
 training_test = [500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 2800, 2850, 2900, 3000]
@@ -318,8 +332,8 @@ result_trainsize = []
 for i in training_test:
     fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_"+str(i)\
                                                                                                              +"_v4.shp"
-    train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands)
     try:
+        train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands)
         clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_train_'+str(i), 150, trainingbands)
         acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_stackv2_train_'+str(i))
         result_trainsize.append(acc_val)
@@ -327,7 +341,7 @@ for i in training_test:
         acc_val = np.nan
         result_trainsize.append(acc_val)
         continue
-
+line_plot(training_test, result_trainsize, 'Training data sample size')
 
 # Feature importance analysis
 feature_importance_analysis(clf_rf_complex, 'RF_complex_stackv2')
