@@ -178,10 +178,10 @@ def accuracy_assessment(clf, test, export_name):
     # Run training data assessment
     # Confusion matrix representing re-substitution accuracy
     trainAccuracy = clf.confusionMatrix()
-    resub_error_matrix = trainAccuracy.getInfo()
+    #resub_error_matrix = trainAccuracy.getInfo()
 
-    training_overall_accuracy = np.around(trainAccuracy.accuracy().getInfo(), decimals=4)
-    print('Training data performance overall accuracy:', training_overall_accuracy)
+    #training_overall_accuracy = np.around(trainAccuracy.accuracy().getInfo(), decimals=4)
+    #print('Training data performance overall accuracy:', training_overall_accuracy)
 
     #kappa_train = np.around(trainAccuracy.kappa().getInfo(), decimals=4)
     #print('Kappa coefficient for training data (-1 to 1) =', kappa_train)
@@ -192,17 +192,17 @@ def accuracy_assessment(clf, test, export_name):
     #consumers_train = trainAccuracy.consumersAccuracy().getInfo()
     #table_writer(consumers_train, 'Consumers_acc_train_', export_name)
 
-    training_csv = os.path.join(fp_export_dir, 'Training_confusion_matrix'+export_name+'.csv')
-    with open(training_csv, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerows(resub_error_matrix)
+    #training_csv = os.path.join(fp_export_dir, 'Training_confusion_matrix'+export_name+'.csv')
+    #with open(training_csv, "w", newline="") as f:
+    #    writer = csv.writer(f)
+    #    writer.writerows(resub_error_matrix)
 
     # Run test data assessment
     tested = test.classify(clf)
     test_accuracy = tested.errorMatrix('VALUE', 'classification')
 
-    test_error_matrix = test_accuracy.getInfo()
-    table_writer(test_error_matrix, 'Error_matrix_test_', export_name)
+    #test_error_matrix = test_accuracy.getInfo()
+    #table_writer(test_error_matrix, 'Error_matrix_test_', export_name)
 
     test_overall_accuracy = np.around(test_accuracy.accuracy().getInfo(), decimals=4)
     print('Test data performance overall accuracy:', test_overall_accuracy)
@@ -229,10 +229,11 @@ def feature_importance_analysis(clf, export_name):
             writer.writerow(row)
 
 
-def spectral_stats(band_names_list, training_data, export_name):
+def spectral_stats(band_names_in, training_data, export_name):
     print('Generating spectral means...')
-    numBands = band_names_list.length()
-    bandsWithClass = band_names_list.add('VALUE')
+    band_names_list = band_names_in.getInfo()
+    numBands = len(band_names_list)
+    bandsWithClass = band_names_in.add('VALUE')
     classIndex = bandsWithClass.indexOf('VALUE')
 
     gcpStats = training_data.reduceColumns(**{
@@ -284,41 +285,29 @@ band_names = stack.bandNames()
 trainingbands = band_names.getInfo()
 print('Training bands are:', trainingbands)
 
-# Select bands from the stack for use
-trainingbands_refined = [trainingbands[i] for i in [0, 1, 3, 13, 15,
-                                                    16, 17, 18, 21, 22,
-                                                    23, 24, 27, 28, 29,
-                                                    31, 32, 36, 37, 39,
-                                                    40, 44, 45, 49, 50,
-                                                    53, 54, 58, 59, 63,
-                                                    64, 65]]
-print('Training bands refined are:', trainingbands_refined)
-stack = stack.select(trainingbands_refined)
-
 # Load and sample the training data
-train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands_refined)
+train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands)
 
 
 """
 Class spectral analysis
 """
 # Get spectral stats
-spectral_stats(trainingbands_refined, train_complex, '_stackV2_2000S_150T')
+spectral_stats(band_names, train_complex, '_indexDev_2000S_150T')
 
 
 """
 Random forest classification
 """
 # First attempt classification
-clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_stackv2' + '_2000S_150T', 150, trainingbands_refined)
-acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex_stackv2' + '_2000S_150T')
-
+clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_stackv3' + '_2000S_150T', 150, trainingbands)
+acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex_stackv3' + '_2000S_150T')
 
 # Test for number of trees optimization
 trees_test = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200, 225, 250]
 result_trees = []
 for i in trees_test:
-    clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_trees_'+str(i), i, trainingbands_refined)
+    clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_trees_'+str(i), i, trainingbands)
     acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_stackv2_trees'+str(i))
     result_trees.append(acc_val)
 
@@ -329,9 +318,9 @@ result_trainsize = []
 for i in training_test:
     fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_"+str(i)\
                                                                                                              +"_v4.shp"
-    train_complex, test_complex = load_sample_training_data(fp_train_points_complex)
+    train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands)
     try:
-        clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_train_'+str(i), 150, trainingbands_refined)
+        clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_train_'+str(i), 150, trainingbands)
         acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_stackv2_train_'+str(i))
         result_trainsize.append(acc_val)
     except:
