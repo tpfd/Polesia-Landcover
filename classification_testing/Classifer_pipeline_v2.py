@@ -271,18 +271,17 @@ def get_max_acc(test_vals, result):
 
 def training_data_size_optimize(type_switch, bands_in):
     training_test_vals = [500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 2800, 2850, 2900, 3000, 3250,
-                           3500, 4000]
+                          3500, 4000]
     result_trainsize_vals = []
     for i in training_test_vals:
         try:
             if type_switch == 'Complex':
                 fp = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_" + str(
-                    i) \
-                                          + "_v4.shp"
+                    i) + "_v4.shp"
                 train, test = load_sample_training_data(fp, bands_in)
                 clf = apply_random_forest(train, 'RF_complex_train_'+str(i), 150, bands_in)
                 val = accuracy_assessment(clf, test, 'RF_stackv2_train_'+str(i))
-                result_trainsize.append(val)
+                result_trainsize_vals.append(val)
             elif type_switch == 'Simple':
                 fp = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_" \
                                           + str(i) \
@@ -290,13 +289,13 @@ def training_data_size_optimize(type_switch, bands_in):
                 train, test = load_sample_training_data(fp, bands_in)
                 clf = apply_random_forest(train, 'RF_complex_train_'+str(i), 150, bands_in)
                 val = accuracy_assessment(clf, test, 'RF_stackv2_train_'+str(i))
-                result_trainsize.append(val)
+                result_trainsize_vals.append(val)
             else:
                 print('Specify classes type: Simple or Complex')
                 break
         except:
             val = np.nan
-            result_trainsize.append(val)
+            result_trainsize_vals.append(val)
             break
 
     training_test_vals = match_result_lengths(training_test_vals, result_trainsize_vals)
@@ -307,27 +306,36 @@ def training_data_size_optimize(type_switch, bands_in):
 def trees_size_optimize(type_switch, bands_in, train, test):
     trees_test_vals = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450]
     result_trees_vals = []
-    for i in trees_test:
+    for i in trees_test_vals:
         try:
             if type_switch == 'Complex':
                 clf = apply_random_forest(train, 'RF_complex_trees_'+str(i), i, bands_in)
                 val = accuracy_assessment(clf, test, 'RF_complex_trees'+str(i))
-                result_trees.append(val)
+                result_trees_vals.append(val)
             elif type_switch == 'Simple':
                 clf = apply_random_forest(train, 'RF_simple_trees_' + str(i), i, bands_in)
                 val = accuracy_assessment(clf, test, 'RF_simple_trees' + str(i))
-                result_trees.append(val)
+                result_trees_vals.append(val)
             else:
                 print('Specify classes type: Simple or Complex')
                 break
         except:
             val = np.nan
-            result_trees.append(val)
+            result_trees_vals.append(val)
             break
 
     trees_test_vals = match_result_lengths(trees_test_vals, result_trees_vals)
     max_acc = get_max_acc(trees_test_vals, result_trees_vals)
     return trees_test_vals, result_trees_vals, max_acc
+
+
+def optimised_classification_run(bands_in, train_size, tree_size, run_name, type_switch):
+    fp = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/" + type_switch + "_points_" + str(train_size)\
+         + "_v4.shp"
+    train, test = load_sample_training_data(fp, bands_in)
+    clf = apply_random_forest(train, run_name, tree_size, bands_in)
+    acc_val = accuracy_assessment(clf, test, run_name)
+    return acc_val, clf
 
 
 """
@@ -339,8 +347,8 @@ fp_target_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classif_area.sh
 fp_export_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classified/"
 
 # Set desired primary training data
-fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_2850_v4.shp"
-fp_train_points_simple = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_2850_v4.shp"
+fp_train_points_complex = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_points_2000_v4.shp"
+fp_train_points_simple = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_2000_v4.shp"
 
 label = 'VALUE'  # Name of the classes column in your training data
 scale = 20  # Sets the output scale of the analysis
@@ -372,7 +380,7 @@ trainingbands = band_names.getInfo()
 print('Training bands are:', trainingbands)
 
 # Load and sample the training data
-train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands)
+#train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands)
 train_simple, test_simple = load_sample_training_data(fp_train_points_simple, trainingbands)
 
 
@@ -390,25 +398,17 @@ Random forest classification
 training_test, result_trainsize, opti_trainSize = training_data_size_optimize('Simple', trainingbands)
 line_plot(training_test, result_trainsize, 'Training data sample size (reduced stack - simple classes)')
 
-
 # Test for number of trees optimization
 trees_test, result_trees, opti_treeSize = trees_size_optimize('Simple', trainingbands, train_simple, test_simple)
-line_plot(trees_test, result_trees, 'Number of trees (reduced stack)')
-
+line_plot(trees_test, result_trees, 'Number of trees (reduced stack - simple classes)')
 
 # Stand alone (optimised) classification
-fp_train_points_simple = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_points_"\
-                         + opti_trainSize +\
-                         "_v4.shp"
-train_simple, test_simple = load_sample_training_data(fp_train_points_simple, trainingbands)
-clf_rf_complex = apply_random_forest(train_complex, 'RF_complex_stackv3' + '_2850S_150T', opti_treeSize, trainingbands)
-acc_val = accuracy_assessment(clf_rf_complex, test_complex, 'RF_complex_stackv3' + '_2850S_225T')
-
-
-
+acc_val_simple, clf_simple = optimised_classification_run(trainingbands,
+                                                          opti_trainSize, opti_treeSize,
+                                                          'Optimum_simple_', 'Simple')
 
 # Feature importance analysis
-feature_importance_analysis(clf_rf_complex, 'RF_complex_stackv2')
+feature_importance_analysis(clf_simple, 'Optimum_simple_')
 
 
 """
