@@ -620,12 +620,13 @@ def create_data_stack_v2(aoi, date_list, s2_params):
     """
     s1_stack = fetch_sentinel1_v2(aoi, date_list)
     s2_stack = fetch_sentinel2_v2(aoi, date_list, s2_params)
-    topo_stack = fetch_topography(aoi)
-
     combined_stack = s1_stack.addBands(s2_stack)
-    combined_stack = combined_stack.addBands(topo_stack)
 
-    # Normalise to between 0 and 1 usning min-max.
+    # Calculate indices on raw data
+    print('Calculating indices...')
+    combined_stack = compute_indices(combined_stack, date_list)
+
+    # Normalise to between 0 and 1 using min-max.
     print('Calculating min-max values for each band...')
     max_dict, min_dict = get_min_max(combined_stack)
 
@@ -640,64 +641,6 @@ def create_data_stack_v2(aoi, date_list, s2_params):
         else:
             normed_combined_stack = normed_combined_stack.addBands(norm_band)
     print('Normalisation complete!')
-
-    # Calculate indices on raw data
-    print('Calculating indices...')
-    # April
-    AVI_Apr = combined_stack.expression('B8 * (1-B4)*(B8-B4)', {
-        'B8': combined_stack.select('S2_B8_2018-04-01_2018-04-30').multiply(0.0001),
-        'B4': combined_stack.select('S2_B4_2018-04-01_2018-04-30').multiply(0.0001)}).rename('AVI_Apr')
-
-    EVI_Apr = combined_stack.expression('2.5 * ((B8-B4) / (B8 + 6 * B4-7.5 * B2 + 1))', {
-        'B8': combined_stack.select('S2_B8_2018-04-01_2018-04-30').multiply(0.0001),
-        'B4': combined_stack.select('S2_B4_2018-04-01_2018-04-30').multiply(0.0001),
-        'B2': combined_stack.select('S2_B2_2018-04-01_2018-04-30').multiply(0.0001)}).rename('EVI_Apr')
-
-    #normed_combined_stack = normed_combined_stack.addBands(AVI_Apr)
-    #normed_combined_stack = normed_combined_stack.addBands(EVI_Apr)
-
-    # May
-    AVI_May = combined_stack.expression('B8 * (1-B4)*(B8-B4)', {
-        'B8': combined_stack.select('S2_B8_2018-05-01_2018-05-31').multiply(0.0001),
-        'B4': combined_stack.select('S2_B4_2018-05-01_2018-05-31').multiply(0.0001)}).rename('AVI_May')
-
-    EVI_May = combined_stack.expression('2.5 * ((B8-B4) / (B8 + 6 * B4-7.5 * B2 + 1))', {
-        'B8': combined_stack.select('S2_B8_2018-05-01_2018-05-31').multiply(0.0001),
-        'B4': combined_stack.select('S2_B4_2018-05-01_2018-05-31').multiply(0.0001),
-        'B2': combined_stack.select('S2_B2_2018-05-01_2018-05-31').multiply(0.0001)}).rename('EVI_May')
-
-    #normed_combined_stack = normed_combined_stack.addBands(AVI_May)
-    #normed_combined_stack = normed_combined_stack.addBands(EVI_May)
-
-    # June
-    AVI_June = combined_stack.expression('B8 * (1-B4)*(B8-B4)', {
-        'B8': combined_stack.select('S2_B8_2018-06-01_2018-06-30').multiply(0.0001),
-        'B4': combined_stack.select('S2_B4_2018-06-01_2018-06-30').multiply(0.0001)}).rename('AVI_June')
-
-    EVI_June = combined_stack.expression('2.5 * ((B8-B4) / (B8 + 6 * B4-7.5 * B2 + 1))', {
-        'B8': combined_stack.select('S2_B8_2018-06-01_2018-06-30').multiply(0.0001),
-        'B4': combined_stack.select('S2_B4_2018-06-01_2018-06-30').multiply(0.0001),
-        'B2': combined_stack.select('S2_B2_2018-06-01_2018-06-30').multiply(0.0001)}).rename('EVI_June')
-
-    #normed_combined_stack = normed_combined_stack.addBands(AVI_June)
-    #normed_combined_stack = normed_combined_stack.addBands(EVI_June)
-
-    # Remove unwanted bands and bands that are now part of a index
-    nameOfBands = normed_combined_stack.bandNames().getInfo()
-    #nameOfBands.remove('S2_B4_2018-04-01_2018-04-30')
-    #nameOfBands.remove('S2_B8_2018-04-01_2018-04-30')
-    #nameOfBands.remove('S2_B2_2018-04-01_2018-04-30')
-
-    #nameOfBands.remove('S2_B4_2018-05-01_2018-05-31')
-    #nameOfBands.remove('S2_B8_2018-05-01_2018-05-31')
-    #nameOfBands.remove('S2_B2_2018-05-01_2018-05-31')
-
-    #nameOfBands.remove('S2_B4_2018-06-01_2018-06-30')
-    #nameOfBands.remove('S2_B8_2018-06-01_2018-06-30')
-    #nameOfBands.remove('S2_B2_2018-06-01_2018-06-30')
-
-    #nameOfBands.remove('slope')
-    normed_combined_stack = normed_combined_stack.select(nameOfBands)
     return normed_combined_stack
 
 
@@ -717,3 +660,43 @@ def get_min_max(stack):
         'bestEffort': True}).getInfo()
     return max_dict, min_dict
 
+
+def calc_EVI(combined_stack, band_date_ID_B8, band_date_ID_B4,  band_date_ID_B2, month):
+    new_name = 'EVI_' + month
+    EVI = combined_stack.expression('2.5 * ((B8-B4) / (B8 + 6 * B4-7.5 * B2 + 1))', {
+        'B8': combined_stack.select(band_date_ID_B8).multiply(0.0001),
+        'B4': combined_stack.select(band_date_ID_B4).multiply(0.0001),
+        'B2': combined_stack.select(band_date_ID_B2).multiply(0.0001)}).rename(new_name)
+    return EVI
+
+
+def calc_AVI(combined_stack, band_date_ID_B8, band_date_ID_B4, month):
+    new_name = 'AVI_'+month
+    AVI = combined_stack.expression('B8 * (1-B4)*(B8-B4)', {
+        'B8': combined_stack.select(band_date_ID_B8).multiply(0.0001),
+        'B4': combined_stack.select(band_date_ID_B4).multiply(0.0001)}).rename(new_name)
+    return AVI
+
+
+def compute_indices(combined_stack, date_list):
+    for i in date_list:
+        month = i[0].split('-')[1]
+        if month == '10':
+            continue
+        else:
+            band_date_ID_B8 = 'S2_B8_'+i[0]+'_'+i[1]
+            band_date_ID_B4 = 'S2_B4_'+i[0]+'_'+i[1]
+            band_date_ID_B2 = 'S2_B2_'+i[0]+'_'+i[1]
+
+            EVI = calc_EVI(combined_stack, band_date_ID_B8, band_date_ID_B4, band_date_ID_B2, month)
+            AVI = calc_AVI(combined_stack, band_date_ID_B8, band_date_ID_B4, month)
+
+            combined_stack = combined_stack.addBands(EVI)
+            combined_stack = combined_stack.addBands(AVI)
+
+            nameOfBands = combined_stack.bandNames().getInfo()
+            nameOfBands.remove(band_date_ID_B8)
+            nameOfBands.remove(band_date_ID_B4)
+            nameOfBands.remove(band_date_ID_B2)
+            combined_stack = combined_stack.select(nameOfBands)
+    return combined_stack
