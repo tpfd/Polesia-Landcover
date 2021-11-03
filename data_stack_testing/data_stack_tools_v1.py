@@ -855,8 +855,7 @@ def create_data_stack_v2(aoi, date_list, s2_params):
 
     """
     s1_stack = fetch_sentinel1_v2(aoi, date_list)
-    s2_stack = fetch_sentinel2_v3(aoi, date_list, s2_params)
-    topo_stack = fetch_topography(aoi)
+    combined_stack = fetch_sentinel2_v3(aoi, date_list, s2_params)
 
     # Calculate indices on raw data
     print('Calculating indices...')
