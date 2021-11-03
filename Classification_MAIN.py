@@ -14,7 +14,7 @@ from Satellite_data_handling import stack_builder_run
 User defined variables
 """
 # Processing and output options
-training_data_toggle = True
+training_data_resample_toggle = True
 plot_toggle = True
 advanced_performance_stats_toggle = False
 optimisation_toggle = False
@@ -34,6 +34,10 @@ fp_settings_txt = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/RF_classif_se
 complex_training_fpath = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_swamp_points_v4.shp"
 simple_training_fpath = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_swamp_points_v4.shp"
 
+
+"""
+Training data handling and set up
+"""
 # Load preset classification parameters if already in place
 if use_presets:
     if os.path.isfile(fp_settings_txt):
@@ -43,14 +47,14 @@ if use_presets:
         print('No preset parameters available, run with optimisation toggle set to True first.')
         sys.exit()
 
-"""
-Training data handling
-"""
-if training_data_toggle:
+if training_data_resample_toggle:
     run_resample_training_data(complex_training_fpath, plot_toggle, 'Complex classes', 'Complex')
     run_resample_training_data(simple_training_fpath, plot_toggle, 'Simple classes', 'Simple')
 
-if not optimisation_toggle:
+if optimisation_toggle:
+    training_data_size_optimize()
+
+else:
     if os.path.isfile(fp_settings_txt):
             preset_table = pd.read_csv(fp_settings_txt)
             preset_table.index = preset_table.Variable
@@ -77,4 +81,4 @@ train_complex, test_complex = load_sample_training_data(fp_train_complex_points,
 
 
 
-# Perform the classification (optional optimisation)
+# Perform the classification
