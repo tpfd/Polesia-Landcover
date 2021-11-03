@@ -270,8 +270,9 @@ def get_max_acc(test_vals, result):
 
 
 def training_data_size_optimize(type_switch, bands_in):
-    training_test_vals = [500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 2800, 2850, 2900, 3000, 3250,
-                          3500, 4000]
+    training_test_vals = [500, 750, 1000, 1250, 1500, 1750, 2000,
+                          2250, 2500, 2750, 2800, 2850, 2900, 3000,
+                          3250, 3500, 4000, 4250, 4500, 4750, 5000]
     result_trainsize_vals = []
     for i in training_test_vals:
         try:
@@ -380,7 +381,7 @@ trainingbands = band_names.getInfo()
 print('Training bands are:', trainingbands)
 
 # Load and sample the training data
-#train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands)
+train_complex, test_complex = load_sample_training_data(fp_train_points_complex, trainingbands)
 train_simple, test_simple = load_sample_training_data(fp_train_points_simple, trainingbands)
 
 
@@ -388,7 +389,7 @@ train_simple, test_simple = load_sample_training_data(fp_train_points_simple, tr
 Class spectral analysis
 """
 # Get spectral stats
-#spectral_stats(band_names, train_complex, '_indexDev_2000S_200T')
+spectral_stats(band_names, train_complex, '_indexed_spectra_gapfilled')
 
 
 """

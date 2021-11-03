@@ -914,6 +914,10 @@ def calc_AVI(combined_stack, band_date_ID_B8, band_date_ID_B4, month):
 
 
 def compute_indices(combined_stack, date_list):
+    """
+    Computes the EVI and AVI indices for all months in the stack, except for those listed in the skip state.
+    Currently only skips October.
+    """
     for i in date_list:
         month = i[0].split('-')[1]
         if month == '10':
