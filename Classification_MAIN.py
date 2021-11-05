@@ -9,17 +9,21 @@ You will need:
 You may want:
 > A presets .csv file (fp_settings_txt)
 
+tile_size is in degrees (WGS4326)
+
 """
 import sys
 import os
 from geemap import geemap
-import pandas as pd
+import shutil
 sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
 from Training_data_handling import run_resample_training_data, load_sample_training_data,\
     training_data_size_optimize, trees_size_optimize
 from Satellite_data_handling import stack_builder_run
 from Utilities import line_plot, load_presets, generate_empty_preset_table
-from Classification_tools import apply_random_forest, generate_RF_model
+from Classification_tools import apply_random_forest, generate_RF_model, accuracy_assessment_basic, \
+    accuracy_assessment_full
+from Processing_tools import tile_polygon
 
 """
 User defined variables
@@ -27,6 +31,7 @@ User defined variables
 # Processing and output options
 training_data_resample_toggle = False
 plot_toggle = True
+performance_stats_toggle = False
 advanced_performance_stats_toggle = False
 optimisation_toggle = False
 use_presets = True
@@ -35,11 +40,11 @@ use_presets = True
 class_col_name = 'VALUE'
 scale = 20
 years_to_map = [2018, 2019]
-tile_size = 1000
+tile_size = 0.1
 
 # File paths and directories for classification pipeline
 fp_train_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Project_area.shp"
-fp_target_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classif_area.shp"
+fp_target_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/whole_map.shp"
 fp_export_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classified/"
 fp_settings_txt = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/RF_classif_setting.csv"
 plot_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Plots/"
@@ -85,7 +90,7 @@ else:
 
 # Run tree and training data size optimization if so toggled
 if optimisation_toggle:
-    # Training data size
+    # Optimize training data size
     test_val_complex, result_complex, acc_cT, training_complex = training_data_size_optimize('Complex',
                                                                                              training_bands,
                                                                                              points_name_simple,
@@ -107,7 +112,7 @@ if optimisation_toggle:
                   'Training data sample size (simple)',
                   plot_dir)
 
-    # Number of trees
+    # Optimize number of trees
     test_val_complex, result_complex, acc_cTr, trees_complex = trees_size_optimize('Complex',
                                                                                    training_bands)
     test_val_simple, result_simple, acc_sTr, trees_simple = trees_size_optimize('Simple',
@@ -122,7 +127,7 @@ if optimisation_toggle:
                   'Tree size (simple)',
                   plot_dir)
 
-    # Write out to preset file
+    # Write out results to preset file
     preset_table = generate_empty_preset_table()
     preset_table['Value']['fp_train_simple_points'] = fp_train_simple_points
     preset_table['Value']['fp_train_complex_points'] = fp_train_complex_points
@@ -152,13 +157,34 @@ clf_complex = generate_RF_model('Complex', int(trees_complex), train_complex, cl
 clf_simple = generate_RF_model('Simple', int(trees_simple), train_simple, class_col_name, training_bands)
 
 # Generate performance stats
+if advanced_performance_stats_toggle:
+    accuracy_assessment_full(clf_complex, test_complex, 'Complex_RF_', fp_export_dir)
+    accuracy_assessment_full(clf_simple, test_simple, 'Simple_RF_', fp_export_dir)
+elif performance_stats_toggle:
+    accuracy_assessment_basic(clf_complex, test_complex, 'Complex_RF_')
+    accuracy_assessment_basic(clf_simple, test_simple, 'Simple_RF_')
+else:
+    print('No accuracy assessment carried out.')
 
-# Run the classification for the desired years
-for i in years_to_map:
-    aoi = geemap.shp_to_ee(fp_target_ext)
-    stack_map, training_bands_map = stack_builder_run(aoi, i)
-    export_name = str(i)+'_RF_'
-    apply_random_forest(export_name+'Complex', training_bands_map, fp_target_ext, stack_map, scale, fp_export_dir,
-                        clf_complex)
-    apply_random_forest(export_name + 'Simple', training_bands_map, fp_target_ext, stack_map, scale, fp_export_dir,
-                        clf_simple)
+# Tile the target area to allow GEE extraction
+tile_dir = tile_polygon(fp_target_ext, tile_size, fp_export_dir)
+tile_list = []
+os.chdir(tile_dir)
+for root, dirs, files in os.walk(tile_dir):
+    for file in files:
+        if file.endswith(".shp"):
+            tile_list.append(os.path.join(root, file))
+
+# Run the classification for the desired years over the tiles
+for i in tile_list:
+    aoi_map = geemap.shp_to_ee(i)
+    for j in years_to_map:
+        stack_map, training_bands_map = stack_builder_run(aoi_map, j)
+        export_name = str(j)+'_tile'+str(i)+'_RF_'
+        apply_random_forest(export_name+'Complex', training_bands, fp_target_ext, stack_map, scale, fp_export_dir,
+                            clf_complex)
+        apply_random_forest(export_name + 'Simple', training_bands, fp_target_ext, stack_map, scale, fp_export_dir,
+                            clf_simple)
+
+# Clean up tmp files
+shutil.rmtree(tile_dir)

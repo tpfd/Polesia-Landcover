@@ -9,7 +9,7 @@ import numpy as np
 import ee
 import sys
 sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
-from Classification_tools import apply_random_forest, accuracy_assessment_simple
+from Classification_tools import apply_random_forest, accuracy_assessment_basic
 from Utilities import get_max_acc, match_result_lengths
 
 ee.Initialize()
@@ -98,13 +98,13 @@ def training_data_size_optimize(type_switch, bands_in, points_name_simple, point
                 fp = points_name_complex + str(i) + ".shp"
                 train, test = load_sample_training_data(fp, bands_in)
                 clf = apply_random_forest(train, 'RF_complex_train_'+str(i), 150, bands_in)
-                val = accuracy_assessment_simple(clf, test, 'RF_stackv2_train_'+str(i))
+                val = accuracy_assessment_basic(clf, test, 'RF_stackv2_train_'+str(i))
                 result_trainsize_vals.append(val)
             elif type_switch == 'Simple':
                 fp = points_name_simple + str(i) + ".shp"
                 train, test = load_sample_training_data(fp, bands_in)
                 clf = apply_random_forest(train, 'RF_complex_train_'+str(i), 150, bands_in)
-                val = accuracy_assessment_simple(clf, test, 'RF_stackv2_train_'+str(i))
+                val = accuracy_assessment_basic(clf, test, 'RF_stackv2_train_'+str(i))
                 result_trainsize_vals.append(val)
             else:
                 print('Specify classes type: Simple or Complex')
@@ -126,11 +126,11 @@ def trees_size_optimize(type_switch, bands_in, train, test):
         try:
             if type_switch == 'Complex':
                 clf = apply_random_forest(train, 'RF_complex_trees_'+str(i), i, bands_in)
-                val = accuracy_assessment_simple(clf, test, 'RF_complex_trees'+str(i))
+                val = accuracy_assessment_basic(clf, test, 'RF_complex_trees'+str(i))
                 result_trees_vals.append(val)
             elif type_switch == 'Simple':
                 clf = apply_random_forest(train, 'RF_simple_trees_' + str(i), i, bands_in)
-                val = accuracy_assessment_simple(clf, test, 'RF_simple_trees' + str(i))
+                val = accuracy_assessment_basic(clf, test, 'RF_simple_trees' + str(i))
                 result_trees_vals.append(val)
             else:
                 print('Specify classes type: Simple or Complex')

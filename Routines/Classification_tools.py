@@ -35,8 +35,8 @@ def apply_random_forest(export_name, training_bands, fp_target_ext, stack, scale
     # Carry out the Random Forest
     print('Using random forest to classify region', export_name+'...')
     target_area = geemap.shp_to_ee(fp_target_ext)
-    target_stack = stack.clip(target_area)
-    classified = target_stack.select(training_bands).classify(clf)
+    #target_stack = stack.clip(target_area)
+    classified = stack.select(training_bands).classify(clf)
 
     # Export results to local
     file_out = fp_export_dir+export_name+'.tif'
@@ -46,8 +46,8 @@ def apply_random_forest(export_name, training_bands, fp_target_ext, stack, scale
     return clf
 
 
-def accuracy_assessment_simple(clf, test, export_name):
-    print('Carrying out accuracy assessment for', export_name+'...')
+def accuracy_assessment_basic(clf, test, export_name):
+    print('Carrying out basic accuracy assessment for', export_name+'...')
     tested = test.classify(clf)
     test_accuracy = tested.errorMatrix('VALUE', 'classification')
 
@@ -57,7 +57,7 @@ def accuracy_assessment_simple(clf, test, export_name):
 
 
 def accuracy_assessment_full(clf, test, export_name, fp_export_dir):
-    print('Carrying out accuracy assessment for', export_name+'...')
+    print('Carrying out full accuracy assessment for', export_name+'...')
     # Run training data assessment
     # Confusion matrix representing re-substitution accuracy
     trainAccuracy = clf.confusionMatrix()

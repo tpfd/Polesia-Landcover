@@ -72,6 +72,68 @@ def create_data_stack_v2(aoi, date_list):
     return normed_combined_stack
 
 
+def get_min_max(stack):
+    max_dict = stack.reduceRegion(**{
+        'reducer': ee.Reducer.max(),
+        'geometry': stack.geometry(),
+        'scale': 20,
+        'maxPixels': 1e9,
+        'bestEffort': True}).getInfo()
+
+    min_dict = stack.reduceRegion(**{
+        'reducer': ee.Reducer.min(),
+        'geometry': stack.geometry(),
+        'scale': 20,
+        'maxPixels': 1e9,
+        'bestEffort': True}).getInfo()
+    return max_dict, min_dict
+
+
+def calc_EVI(combined_stack, band_date_ID_B8, band_date_ID_B4,  band_date_ID_B2, month):
+    new_name = 'EVI_' + month
+    EVI = combined_stack.expression('2.5 * ((B8-B4) / (B8 + 6 * B4-7.5 * B2 + 1))', {
+        'B8': combined_stack.select(band_date_ID_B8).multiply(0.0001),
+        'B4': combined_stack.select(band_date_ID_B4).multiply(0.0001),
+        'B2': combined_stack.select(band_date_ID_B2).multiply(0.0001)}).rename(new_name)
+    return EVI
+
+
+def calc_AVI(combined_stack, band_date_ID_B8, band_date_ID_B4, month):
+    new_name = 'AVI_'+month
+    AVI = combined_stack.expression('B8 * (1-B4)*(B8-B4)', {
+        'B8': combined_stack.select(band_date_ID_B8).multiply(0.0001),
+        'B4': combined_stack.select(band_date_ID_B4).multiply(0.0001)}).rename(new_name)
+    return AVI
+
+
+def compute_indices(combined_stack, date_list):
+    """
+    Computes the EVI and AVI indices for all months in the stack, except for those listed in the skip state.
+    Currently only skips October.
+    """
+    for i in date_list:
+        month = i[0].split('-')[1]
+        if month == '10':
+            continue
+        else:
+            band_date_ID_B8 = 'S2_B8_'+i[0]+'_'+i[1]
+            band_date_ID_B4 = 'S2_B4_'+i[0]+'_'+i[1]
+            band_date_ID_B2 = 'S2_B2_'+i[0]+'_'+i[1]
+
+            EVI = calc_EVI(combined_stack, band_date_ID_B8, band_date_ID_B4, band_date_ID_B2, month)
+            AVI = calc_AVI(combined_stack, band_date_ID_B8, band_date_ID_B4, month)
+
+            combined_stack = combined_stack.addBands(EVI)
+            combined_stack = combined_stack.addBands(AVI)
+
+            nameOfBands = combined_stack.bandNames().getInfo()
+            nameOfBands.remove(band_date_ID_B8)
+            nameOfBands.remove(band_date_ID_B4)
+            nameOfBands.remove(band_date_ID_B2)
+            combined_stack = combined_stack.select(nameOfBands)
+    return combined_stack
+
+
 def fetch_sentinel2_v3(aoi, date_list, s2_params):
     """
     fetch a datastack of Sentinel-2 composites, with cloud/shadow masking applied.
@@ -349,64 +411,3 @@ def fetch_sentinel1_v2(aoi, date_list):
     print('fetch_sentinel1(): bye!')
     return median_stack
 
-
-def get_min_max(stack):
-    max_dict = stack.reduceRegion(**{
-        'reducer': ee.Reducer.max(),
-        'geometry': stack.geometry(),
-        'scale': 20,
-        'maxPixels': 1e9,
-        'bestEffort': True}).getInfo()
-
-    min_dict = stack.reduceRegion(**{
-        'reducer': ee.Reducer.min(),
-        'geometry': stack.geometry(),
-        'scale': 20,
-        'maxPixels': 1e9,
-        'bestEffort': True}).getInfo()
-    return max_dict, min_dict
-
-
-def calc_EVI(combined_stack, band_date_ID_B8, band_date_ID_B4,  band_date_ID_B2, month):
-    new_name = 'EVI_' + month
-    EVI = combined_stack.expression('2.5 * ((B8-B4) / (B8 + 6 * B4-7.5 * B2 + 1))', {
-        'B8': combined_stack.select(band_date_ID_B8).multiply(0.0001),
-        'B4': combined_stack.select(band_date_ID_B4).multiply(0.0001),
-        'B2': combined_stack.select(band_date_ID_B2).multiply(0.0001)}).rename(new_name)
-    return EVI
-
-
-def calc_AVI(combined_stack, band_date_ID_B8, band_date_ID_B4, month):
-    new_name = 'AVI_'+month
-    AVI = combined_stack.expression('B8 * (1-B4)*(B8-B4)', {
-        'B8': combined_stack.select(band_date_ID_B8).multiply(0.0001),
-        'B4': combined_stack.select(band_date_ID_B4).multiply(0.0001)}).rename(new_name)
-    return AVI
-
-
-def compute_indices(combined_stack, date_list):
-    """
-    Computes the EVI and AVI indices for all months in the stack, except for those listed in the skip state.
-    Currently only skips October.
-    """
-    for i in date_list:
-        month = i[0].split('-')[1]
-        if month == '10':
-            continue
-        else:
-            band_date_ID_B8 = 'S2_B8_'+i[0]+'_'+i[1]
-            band_date_ID_B4 = 'S2_B4_'+i[0]+'_'+i[1]
-            band_date_ID_B2 = 'S2_B2_'+i[0]+'_'+i[1]
-
-            EVI = calc_EVI(combined_stack, band_date_ID_B8, band_date_ID_B4, band_date_ID_B2, month)
-            AVI = calc_AVI(combined_stack, band_date_ID_B8, band_date_ID_B4, month)
-
-            combined_stack = combined_stack.addBands(EVI)
-            combined_stack = combined_stack.addBands(AVI)
-
-            nameOfBands = combined_stack.bandNames().getInfo()
-            nameOfBands.remove(band_date_ID_B8)
-            nameOfBands.remove(band_date_ID_B4)
-            nameOfBands.remove(band_date_ID_B2)
-            combined_stack = combined_stack.select(nameOfBands)
-    return combined_stack
