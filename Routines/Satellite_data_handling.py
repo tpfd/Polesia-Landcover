@@ -6,11 +6,12 @@ import ee
 import datetime as dt
 
 
-def stack_builder_run(aoi):
-    date_list = [('2018-03-01', '2018-03-30'),
-                 ('2018-04-01', '2018-04-30'), ('2018-05-01', '2018-05-31'),
-                 ('2018-06-01', '2018-06-30'), ('2018-07-01', '2018-07-30'),
-                 ('2018-10-01', '2018-10-30')]
+def stack_builder_run(aoi, year):
+    year = str(year)
+    date_list = [(year+'-03-01', year+'-03-30'),
+                 (year+'-04-01', year+'-04-30'), (year+'-05-01', year+'-05-31'),
+                 (year+'-06-01', year+'-06-30'), (year+'-07-01', year+'-07-30'),
+                 (year+'-10-01', year+'-10-30')]
     stack = create_data_stack_v2(aoi, date_list)
     band_names = stack.bandNames()
     trainingbands = band_names.getInfo()

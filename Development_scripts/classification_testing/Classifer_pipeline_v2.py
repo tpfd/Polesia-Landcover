@@ -266,7 +266,7 @@ def match_result_lengths(x, y):
 def get_max_acc(test_vals, result):
     max_value = max(result)
     max_index = result.index(max_value)
-    return test_vals[max_index]
+    return test_vals[max_index], test_vals[max_index]
 
 
 def training_data_size_optimize(type_switch, bands_in):
@@ -300,7 +300,7 @@ def training_data_size_optimize(type_switch, bands_in):
             break
 
     training_test_vals = match_result_lengths(training_test_vals, result_trainsize_vals)
-    max_acc = get_max_acc(training_test_vals, result_trainsize_vals)
+    max_acc,  = get_max_acc(training_test_vals, result_trainsize_vals)
     return training_test_vals, result_trainsize_vals, max_acc
 
 
@@ -326,8 +326,8 @@ def trees_size_optimize(type_switch, bands_in, train, test):
             break
 
     trees_test_vals = match_result_lengths(trees_test_vals, result_trees_vals)
-    max_acc = get_max_acc(trees_test_vals, result_trees_vals)
-    return trees_test_vals, result_trees_vals, max_acc
+    max_acc, tree = get_max_acc(trees_test_vals, result_trees_vals)
+    return trees_test_vals, result_trees_vals, max_acc,
 
 
 def optimised_classification_run(bands_in, train_size, tree_size, run_name, type_switch):
