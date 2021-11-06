@@ -3,13 +3,22 @@ This script contains the user settings and primary functionality of the Polesia 
 
 You will need:
 > A polygon of the area that covers all your training data (fp_train_extent)
-> Your training data as a shapefile of points. (*_training_fpath)
+> Your training data as a shapefile of points, with all classes assigned a number in series (*_training_fpath)
 > A polygon that covers all of the area you want mapped (fp_target_ext)
+> A valid Google Earth Engine account that has been set up on the device you are running this script on.
 
 You may want:
-> A presets .csv file (fp_settings_txt)
+> A presets .csv file (fp_settings_txt), if you do not have this make sure to set: optimisation_toggle = True.
 
-tile_size is in degrees (WGS4326)
+Glossary:
+> class_col_name: the variable name (column name) of your classes in the points shapefile.
+> scale: output mapping scale in in meters.
+> years_to_map: years in which to generate landcover maps.
+> tile_size: in degrees (WGS4326), must result in an output that is 10,000 pixels or less in each dimension.
+
+Random tips:
+> fp_target_ext and fp_train_ext can be the same or a different shapefile, but must be specified in each case.
+> Training is always carried out on 2018.
 
 """
 import sys
@@ -40,7 +49,7 @@ use_presets = True
 class_col_name = 'VALUE'
 scale = 20
 years_to_map = [2018, 2019]
-tile_size = 0.1
+tile_size = 0.2
 
 # File paths and directories for classification pipeline
 fp_train_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Project_area.shp"
@@ -143,7 +152,7 @@ else:
         fp_train_simple_points, fp_train_complex_points, trees_complex, training_complex, trees_simple, \
         training_simple = load_presets(fp_settings_txt)
     else:
-        print('No presets available, run with Optimisation set to True to generate presets.')
+        print('No presets available, run with optimisation set to True to generate presets.')
         sys.exit()
 
 # Load training data
@@ -156,7 +165,7 @@ train_simple, test_simple = load_sample_training_data(fp_train_simple_points, tr
 clf_complex = generate_RF_model('Complex', int(trees_complex), train_complex, class_col_name, training_bands)
 clf_simple = generate_RF_model('Simple', int(trees_simple), train_simple, class_col_name, training_bands)
 
-# Generate performance stats
+# Generate classification performance stats
 if advanced_performance_stats_toggle:
     accuracy_assessment_full(clf_complex, test_complex, 'Complex_RF_', fp_export_dir)
     accuracy_assessment_full(clf_simple, test_simple, 'Simple_RF_', fp_export_dir)
@@ -181,9 +190,9 @@ for i in tile_list:
     for j in years_to_map:
         stack_map, training_bands_map = stack_builder_run(aoi_map, j)
         export_name = str(j)+'_tile'+str(i)+'_RF_'
-        apply_random_forest(export_name+'Complex', training_bands, fp_target_ext, stack_map, scale, fp_export_dir,
+        apply_random_forest(export_name + 'Complex', training_bands_map, i, stack_map, scale, fp_export_dir,
                             clf_complex)
-        apply_random_forest(export_name + 'Simple', training_bands, fp_target_ext, stack_map, scale, fp_export_dir,
+        apply_random_forest(export_name + 'Simple', training_bands_map, i, stack_map, scale, fp_export_dir,
                             clf_simple)
 
 # Clean up tmp files
