@@ -58,3 +58,12 @@ def match_result_lengths(x, y):
         diff = len_test - len_res
         x = x[:-diff]
     return x
+
+
+def get_list_of_files(directory, suffix):
+    list_files = []
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(suffix):
+                list_files.append(os.path.join(root, file))
+    return list_files

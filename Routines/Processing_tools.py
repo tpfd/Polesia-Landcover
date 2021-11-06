@@ -9,11 +9,11 @@ import geopandas
 from shapely.geometry import MultiPolygon, Polygon, LineString
 
 
-def tile_polygon(fpath_poly, tile_size, fp_export_dir):
+def tile_polygon(fpath_poly, tile_size, fp_export_dir, type_dir):
     """
     https://stackoverflow.com/questions/8491927/algorithm-to-subdivide-a-polygon-in-smaller-polygons
     """
-    tile_dir = fp_export_dir+'tile_polys/'
+    tile_dir = fp_export_dir+type_dir
     if not os.path.isdir(tile_dir):
         os.mkdir(tile_dir)
 
@@ -26,7 +26,6 @@ def tile_polygon(fpath_poly, tile_size, fp_export_dir):
         shp_file.to_file(name+'.geojson', driver='GeoJSON')
 
     # Generate tiles
-    print('Generating tiles at size:', str(tile_size)+'...')
     GeoDF = geopandas.read_file(name+'.geojson')
     G = np.random.choice(GeoDF.geometry.values)
     squares = split_polygon(G, shape='square', thresh=0.5, side_length=tile_size)
@@ -35,7 +34,6 @@ def tile_polygon(fpath_poly, tile_size, fp_export_dir):
         counter = counter + 1
         name = tile_dir + str(counter)
         shapefile_writer(i, name)
-    print('Tiles exported')
     return tile_dir
 
 

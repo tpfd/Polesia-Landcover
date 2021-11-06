@@ -14,11 +14,11 @@ Glossary:
 > class_col_name: the variable name (column name) of your classes in the points shapefile.
 > scale: output mapping scale in in meters.
 > years_to_map: years in which to generate landcover maps.
-> tile_size: in degrees (WGS4326), must result in an output that is 10,000 pixels or less in each dimension.
 
 Random tips:
 > fp_target_ext and fp_train_ext can be the same or a different shapefile, but must be specified in each case.
 > Training is always carried out on 2018.
+> Big areas mean splitting into lots of processing areas and sub-tiles. This will take time to generate and classify.
 
 """
 import sys
@@ -29,7 +29,7 @@ sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Rout
 from Training_data_handling import run_resample_training_data, load_sample_training_data,\
     training_data_size_optimize, trees_size_optimize
 from Satellite_data_handling import stack_builder_run
-from Utilities import line_plot, load_presets, generate_empty_preset_table
+from Utilities import line_plot, load_presets, generate_empty_preset_table, get_list_of_files
 from Classification_tools import apply_random_forest, generate_RF_model, accuracy_assessment_basic, \
     accuracy_assessment_full
 from Processing_tools import tile_polygon
@@ -49,7 +49,6 @@ use_presets = True
 class_col_name = 'VALUE'
 scale = 20
 years_to_map = [2018, 2019]
-tile_size = 0.2
 
 # File paths and directories for classification pipeline
 fp_train_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Project_area.shp"
@@ -175,25 +174,31 @@ elif performance_stats_toggle:
 else:
     print('No accuracy assessment carried out.')
 
-# Tile the target area to allow GEE extraction
-tile_dir = tile_polygon(fp_target_ext, tile_size, fp_export_dir)
-tile_list = []
-os.chdir(tile_dir)
-for root, dirs, files in os.walk(tile_dir):
-    for file in files:
-        if file.endswith(".shp"):
-            tile_list.append(os.path.join(root, file))
+# Generate processing areas to allow band maths
+print('Generating processing areas...')
+process_size = 1.0
+process_dir = tile_polygon(fp_target_ext, process_size, fp_export_dir, 'processing_areas/')
+process_list = get_list_of_files(process_dir, ".shp")
 
-# Run the classification for the desired years over the tiles
-for i in tile_list:
-    aoi_map = geemap.shp_to_ee(i)
+# Tile processing areas to allow GEE extraction
+tile_size = 0.1
+for i in process_list:
+    print('Generating tiles for processing area', str(i) + '...')
+    process_num = i.split('.')[0].split('/')[-1]
+    tile_dir = tile_polygon(i, tile_size, fp_export_dir, process_num + '_tiles/')
+
+    # Run the classification for the desired years over the processing areas and tiles
+    tile_list = get_list_of_files(fp_export_dir+process_num+'_tiles/', ".shp")
+    process_aoi = geemap.shp_to_ee(i)
     for j in years_to_map:
-        stack_map, training_bands_map = stack_builder_run(aoi_map, j)
-        export_name = str(j)+'_tile'+str(i)+'_RF_'
-        apply_random_forest(export_name + 'Complex', training_bands_map, i, stack_map, scale, fp_export_dir,
-                            clf_complex)
-        apply_random_forest(export_name + 'Simple', training_bands_map, i, stack_map, scale, fp_export_dir,
-                            clf_simple)
+        for k in tile_list:
+            stack_map, training_bands_map = stack_builder_run(process_aoi, j)
+            export_name = str(j)+'_tile_'+process_num+'_RF_'
+            apply_random_forest(export_name + 'Complex', training_bands_map, k, stack_map, scale, fp_export_dir,
+                                clf_complex)
+            apply_random_forest(export_name + 'Simple', training_bands_map, k, stack_map, scale, fp_export_dir,
+                                clf_simple)
+    shutil.rmtree(tile_dir)
 
-# Clean up tmp files
-shutil.rmtree(tile_dir)
+# Clean up
+shutil.rmtree(process_dir)
