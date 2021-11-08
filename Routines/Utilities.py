@@ -31,7 +31,10 @@ def get_max_acc(test_vals, result):
 
 def load_presets(fp_settings_txt):
     preset_table = pd.read_csv(fp_settings_txt)
-    preset_table.index = preset_table.Variable
+    try:
+        preset_table.index = preset_table.Variable
+    except:
+        pass
     fp_train_simple_points = preset_table['Value']['fp_train_simple_points']
     fp_train_complex_points = preset_table['Value']['fp_train_complex_points']
     trees_complex = preset_table['Value']['trees_complex']
@@ -45,7 +48,8 @@ def load_presets(fp_settings_txt):
 def generate_empty_preset_table():
     preset_table = pd.DataFrame(columns=['Value'])
     variables = ['fp_train_complex_points', 'fp_train_simple_points',
-                 'trees', 'training']
+                 'trees_complex', 'training_complex',
+                 'trees_simple', 'training_simple']
     for i in variables:
         preset_table.loc[i] = [None]
     return preset_table

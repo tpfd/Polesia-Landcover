@@ -40,7 +40,7 @@ User defined variables
 # Processing and output options
 training_data_resample_toggle = False
 plot_toggle = True
-performance_stats_toggle = False
+performance_stats_toggle = True
 advanced_performance_stats_toggle = False
 optimisation_toggle = False
 use_presets = True
@@ -66,8 +66,8 @@ class_export_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_dat
 Classification pipeline
 """
 # Set training data name template
-points_name_simple = class_export_dir + "Simple_"
-points_name_complex = class_export_dir + "Complex_"
+points_name_simple = class_export_dir + "Simple_points_"
+points_name_complex = class_export_dir + "Complex_points_"
 
 # Build the data stack for model training
 aoi = geemap.shp_to_ee(fp_train_ext)
@@ -121,10 +121,19 @@ if optimisation_toggle:
                   plot_dir)
 
     # Optimize number of trees
+    train_complex, test_complex = load_sample_training_data(fp_train_complex_points, training_bands,
+                                                            stack, scale, class_col_name)
+    train_simple, test_simple = load_sample_training_data(fp_train_simple_points, training_bands,
+                                                          stack, scale, class_col_name)
+
     test_val_complex, result_complex, acc_cTr, trees_complex = trees_size_optimize('Complex',
-                                                                                   training_bands)
+                                                                                   training_bands,
+                                                                                   train_complex,
+                                                                                   test_complex)
     test_val_simple, result_simple, acc_sTr, trees_simple = trees_size_optimize('Simple',
-                                                                                training_bands)
+                                                                                training_bands,
+                                                                                train_simple,
+                                                                                test_simple)
     if plot_toggle:
         line_plot(test_val_complex,
                   result_complex,
@@ -193,7 +202,7 @@ for i in process_list:
     for j in years_to_map:
         for k in tile_list:
             stack_map, training_bands_map = stack_builder_run(process_aoi, j)
-            export_name = str(j)+'_tile_'+process_num+'_RF_'
+            export_name = 'PArea_' + str(j)+'_tile_'+process_num+'_RF_'
             apply_random_forest(export_name + 'Complex', training_bands_map, k, stack_map, scale, fp_export_dir,
                                 clf_complex)
             apply_random_forest(export_name + 'Simple', training_bands_map, k, stack_map, scale, fp_export_dir,

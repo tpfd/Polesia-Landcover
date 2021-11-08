@@ -22,7 +22,13 @@ def load_sample_training_data(fp_train_points, target_bands, stack, scale, label
     It operates over the passed data stack.
     """
     print('Loading training data:', fp_train_points+'...')
-    training_points = geemap.shp_to_ee(fp_train_points)
+    try:
+        training_points = geemap.shp_to_ee(fp_train_points)
+    except Exception as e:
+        str(e)
+        print('Error in Loading training data...', e)
+        sys.exit()
+
     data = stack.select(target_bands).sampleRegions(collection=training_points,
                                                     properties=[label],
                                                     scale=scale)
