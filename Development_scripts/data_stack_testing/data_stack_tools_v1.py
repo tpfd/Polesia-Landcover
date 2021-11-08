@@ -757,6 +757,87 @@ def fetch_topography(aoi):
     return stack
 
 
+def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_radius=100.0, flood_thresh=-13.0):
+    """
+    Create a simple flood frequency layer from Sentinel-1 data (IW mode & VV)
+    1) preprocess median monthly composites using start/end dates
+    2) apply spatial smoother (focal median) to get rid of the backscatter
+    3) threshold monthly composite as binary flooded/not flooded map
+    4) accumulate binary monthly flood maps, and normalise by dividing by number of months 
+    
+    NOTE: this func could be modified to make use of 'VH' polorisation.Needs further exploration. 
+    This paper however suggests VV might be better for flood detection:
+    https://iopscience.iop.org/article/10.1088/1755-1315/357/1/012034/pdf
+    
+    :: params ::
+    :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent 
+    : param start_date_str: str, should be YYYY-MM-01 for start month (inclusive) 
+    : param end_date_str: str, should be YYYY-MM-01 for end month (inclusive)  
+    : param smoothing_radius: float, radius of smoothing kernel (metres)
+    : param flood_thresh: float, VV values < flood_thresh are considered flooded.
+    : returns : flood frequency map [0-1]
+    """
+
+    print('fetch_sentinel1_flood_index_v1(): hello!')
+    
+    
+    def s1_mask_border_noise(img):
+        """
+        Sentinel-1 data on GEE sometimes suffers from 'border noise' prior to May 2018 at swath edges.
+        This needs to be masked in individual images via mapping before compositing images.
+        This func is derived from the example code provided on the 
+        GEE ee.ImageCollection("COPERNICUS/S1_GRD") pages
+        """
+        edge = img.lt(-30.0)
+        masked_img = img.mask().And(edge.Not())
+        return img.updateMask(masked_img)
+    
+    band='VV' # threshold needs changing if using VH and further testing 
+    
+    # generate list of months
+    start_date_list=[d.strftime('%Y-%m-%d') for d in pd.date_range(start=start_date_str, 
+                                                                   end=end_date_str, freq='MS')]
+    n_months = len(start_date_list)  # used for standardising
+    
+    # specify filters to apply to the GEE Sentinel-1 collection
+    filters = [ee.Filter.listContains("transmitterReceiverPolarisation", band),
+           ee.Filter.equals("instrumentMode", "IW"),
+           ee.Filter.geometry(aoi)]
+    
+    # iteratively generate a monthly flood map and aggregate them
+    for i, start_date in enumerate(start_date_list):
+        print(f'fetch_sentinel1_flood_index_v1(): processing month {start_date}')
+        end_date = ee.Date(start_date).advance(1, 'month')
+        
+        # load, preprocess and make composite
+        s1_median = (ee.ImageCollection('COPERNICUS/S1_GRD')
+             .filterDate(start_date, end_date)
+             .filter(filters)
+             .select(band)
+             .map(s1_mask_border_noise) # remove border noise
+             .median()
+             .clip(aoi.geometry()))
+        
+        # smooth image to get rid of backscatter noise
+        s1_smoothed = s1_median.focal_median(smoothing_radius, 'circle', 'meters')        
+        
+        # apply a flood masking threshold
+        flood_map = s1_smoothed.lt(flood_thresh) 
+        
+        # sum months
+        if i == 0:
+            flood_aggr = flood_map
+        else:
+            flood_aggr = flood_aggr.add(flood_map)
+    
+    ## standardise & rename
+    flood_aggr = flood_aggr.divide(n_months).rename("s1_floodfreq")
+    
+    print('fetch_sentinel1_flood_index_v1(): bye!')    
+    return flood_aggr
+
+
+
 def map_topography(stack, lat=51.85, lon=27.8, elv_rng=(100.0,200.0), asp_rng=(0.0,360.0), slp_rng=(0.0, 10.0), topdiv_rng=(0,0.15)):
     """
     Quick mapping function for debugging topo data 
