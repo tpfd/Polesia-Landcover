@@ -111,7 +111,7 @@ def calc_EVI(combined_stack, band_date_ID_B8, band_date_ID_B4,  band_date_ID_B2,
 
 def calc_AVI(combined_stack, band_date_ID_B8, band_date_ID_B4, month):
     new_name = 'AVI_'+month
-    AVI = combined_stack.expression('B8 * (1-B4)*(B8-B4)', {
+    AVI = combined_stack.expression('(B8 * (1-B4)*(B8-B4))**0.3', {
         'B8': combined_stack.select(band_date_ID_B8).multiply(0.0001),
         'B4': combined_stack.select(band_date_ID_B4).multiply(0.0001)}).rename(new_name)
     return AVI
