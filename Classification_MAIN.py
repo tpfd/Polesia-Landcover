@@ -25,7 +25,8 @@ import sys
 import os
 from geemap import geemap
 import shutil
-sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
+#sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
+sys.path.append("/home/markdj/repos/Polesia-Landcover/Routines/")
 from Training_data_handling import run_resample_training_data, load_sample_training_data,\
     training_data_size_optimize, trees_size_optimize
 from Satellite_data_handling import stack_builder_run
@@ -48,19 +49,25 @@ use_presets = True
 # User settings
 class_col_name = 'VALUE'
 scale = 20
-years_to_map = [2018, 2019]
+years_to_map = [2018]
+
+base_dir = '/home/markdj/Dropbox/artio/polesia'
+# base_dir = 'D:/tpfdo/Documents/Artio_drive/Projects/Polesia'
 
 # File paths and directories for classification pipeline
-fp_train_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Project_area.shp"
-fp_target_ext = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/whole_map.shp"
-fp_export_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Classified/"
-fp_settings_txt = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/RF_classif_setting.csv"
-plot_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Plots/"
+fp_train_ext = f"{base_dir}/Project_area.shp"
+fp_target_ext = f"{base_dir}/whole_map.shp"
+fp_export_dir = f"{base_dir}/Classified/"
+# fp_settings_txt = f"{base_dir}/RF_classif_setting.csv"   # TODO: should there really be fixed paths in here? either all paths in .csv, or MAIN, not both
+fp_settings_txt = f"{base_dir}/RF_classif_setting_mdj.csv"
+plot_dir = f"{base_dir}/Plots/"
 
 # File paths to shapefiles of target class points and the export dir for their resampling
-complex_training_fpath = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Complex_swamp_points_v4.shp"
-simple_training_fpath = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/Simple_swamp_points_v4.shp"
-class_export_dir = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/"
+complex_training_fpath = f"{base_dir}/Training_data/Complex_swamp_points_v4.shp"
+simple_training_fpath = f"{base_dir}/Training_data/Simple_swamp_points_v4.shp"
+class_export_dir = f"{base_dir}/Training_data/"
+
+
 
 """
 Classification pipeline
@@ -71,11 +78,12 @@ points_name_complex = class_export_dir + "Complex_points_"
 
 # Build the data stack for model training
 aoi = geemap.shp_to_ee(fp_train_ext)
-stack, training_bands = stack_builder_run(aoi, 2018)
+stack, training_bands, max_min_values_training = stack_builder_run(aoi, 2018)
 
 # Load preset classification parameters if so toggled
 if use_presets:
     if os.path.isfile(fp_settings_txt):
+        ('loading preset classification parameters from file...')
         fp_train_simple_points, fp_train_complex_points, trees_complex, training_complex, trees_simple, \
         training_simple = load_presets(fp_settings_txt)
     else:
@@ -87,6 +95,7 @@ else:
 
 # Resample 'raw' training data points to same number of points per class if so toggled
 if training_data_resample_toggle:
+    print('Resampling raw training data...')
     run_resample_training_data(complex_training_fpath, plot_toggle,
                                'Complex classes', 'Complex',
                                class_export_dir, plot_dir, class_col_name)
@@ -98,6 +107,7 @@ else:
 
 # Run tree and training data size optimization if so toggled
 if optimisation_toggle:
+    print('performing tree/training data optimisation...')
     # Optimize training data size
     test_val_complex, result_complex, acc_cT, training_complex = training_data_size_optimize('Complex',
                                                                                              training_bands,
@@ -155,6 +165,7 @@ if optimisation_toggle:
     preset_table.to_csv(fp_settings_txt)
 
 else:
+    # TODO: Tom, think this is just a repeat of the code under 'use presets'?
     print('No optimisation run. Using presets...')
     if os.path.isfile(fp_settings_txt):
         fp_train_simple_points, fp_train_complex_points, trees_complex, training_complex, trees_simple, \
@@ -201,7 +212,7 @@ for i in process_list:
     process_aoi = geemap.shp_to_ee(i)
     for j in years_to_map:
         for k in tile_list:
-            stack_map, training_bands_map = stack_builder_run(process_aoi, j)
+            stack_map, training_bands_map = stack_builder_run(process_aoi, j, max_min_values_training)
             export_name = 'PArea_' + str(j)+'_tile_'+process_num+'_RF_'
             apply_random_forest(export_name + 'Complex', training_bands_map, k, stack_map, scale, fp_export_dir,
                                 clf_complex)

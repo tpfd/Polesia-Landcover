@@ -8,20 +8,20 @@ import pandas as pd
 ee.Initialize()
 
 
-def stack_builder_run(aoi, year):
+def stack_builder_run(aoi, year, max_min_values_input=None):
     year = str(year)
     date_list = [(year+'-03-01', year+'-03-30'),
                  (year+'-04-01', year+'-04-30'), (year+'-05-01', year+'-05-31'),
                  (year+'-06-01', year+'-06-30'), (year+'-07-01', year+'-07-30'),
                  (year+'-10-01', year+'-10-30')]
-    stack = create_data_stack_v2(aoi, date_list, year)
+    stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, max_min_values_input)
     band_names = stack.bandNames()
     trainingbands = band_names.getInfo()
     print('Training bands are:', trainingbands)
-    return stack, trainingbands
+    return stack, trainingbands, max_min_values_output
 
 
-def create_data_stack_v2(aoi, date_list, year):
+def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
     """
     Convenience function to compile and combine all distinct dataset sub-stacks
     * Sentinel 1 data bands: 'VV', 'VH'
@@ -58,20 +58,26 @@ def create_data_stack_v2(aoi, date_list, year):
                                                  smoothing_radius=100.0,
                                                  flood_thresh=-13.0)
     #combined_stack = s1_stack.addBands(s2_stack)
-    combined_stack = s2_stack.addBands(flood_index)
+    #combined_stack = s2_stack.addBands(flood_index)
+    combined_stack = s2_stack  #TODO: tmpry testing!
 
     # Calculate indices on raw data
     print('Calculating indices...')
     combined_stack = compute_indices(combined_stack, date_list)
 
-    # Normalise to between 0 and 1 using min-max.
-    print('Calculating min-max values for each band...')
-    max_dict, min_dict = get_min_max(combined_stack)
+    if not max_min_values:
+        # Normalise to between 0 and 1 using min-max.
+        print('Calculating min-max values for each band...')
+        max_dict, min_dict = get_min_max(combined_stack)
+    else:
+        # use previously calculated values
+        max_dict = max_min_values[0]
+        min_dict = max_min_values[1]
 
     print('Normalising all bands with min-max...')
     counter = 0
     band_names = combined_stack.bandNames().getInfo()
-    normed_combined_stack = ee.ImageCollection()
+    #normed_combined_stack = ee.ImageCollection()   # TODO: TypeError: __init__() missing 1 required positional argument: 'args'
     for i in band_names:
         counter = counter + 1
         norm_band = combined_stack.select(i).unitScale(min_dict.get(i), max_dict.get(i))
@@ -80,7 +86,7 @@ def create_data_stack_v2(aoi, date_list, year):
         else:
             normed_combined_stack = normed_combined_stack.addBands(norm_band)
     print('Normalisation complete!')
-    return normed_combined_stack
+    return normed_combined_stack, (max_dict, min_dict)
 
 
 def get_min_max(stack):
