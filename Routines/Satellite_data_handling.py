@@ -52,13 +52,13 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
 
     #s1_stack = fetch_sentinel1_v2(aoi, date_list)
     s2_stack = fetch_sentinel2_v3(aoi, date_list, s2_params)
-    flood_index = fetch_sentinel1_flood_index_v1(aoi,
-                                                 str((int(year)-2))+'-01-01',
-                                                 year+'-12-01',
-                                                 smoothing_radius=100.0,
-                                                 flood_thresh=-13.0)
-    #combined_stack = s1_stack.addBands(s2_stack)
-    #combined_stack = s2_stack.addBands(flood_index)
+    # flood_index = fetch_sentinel1_flood_index_v1(aoi,
+    #                                             str((int(year)-1))+'-01-01',
+    #                                             year+'-12-01',
+    #                                             smoothing_radius=100.0,
+    #                                             flood_thresh=-13.0)
+    # #combined_stack = s1_stack.addBands(s2_stack)
+    # combined_stack = s2_stack.addBands(flood_index)
     combined_stack = s2_stack  #TODO: tmpry testing!
 
     # Calculate indices on raw data
@@ -154,7 +154,7 @@ def compute_indices(combined_stack, date_list):
 def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_radius=100.0, flood_thresh=-13.0):
     """
     Create a simple flood frequency layer from Sentinel-1 data (IW mode & VV)
-    1) preprocess median monthly composites using start/end dates
+    1) preprocess median non-winter (Mar-Oct) monthly composites using start/end dates
     2) apply spatial smoother (focal median) to get rid of the backscatter
     3) threshold monthly composite as binary flooded/not flooded map
     4) accumulate binary monthly flood maps, and normalise by dividing by number of months
@@ -190,6 +190,8 @@ def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_
     # generate list of months
     start_date_list = [d.strftime('%Y-%m-%d') for d in pd.date_range(start=start_date_str,
                                                                      end=end_date_str, freq='MS')]
+    # omit the winter months (jan, feb, nov, dec)
+    start_date_list = [k for k in start_date_list if (int(k[5:7]) > 2) and (int(k[5:7]) < 11)]
     n_months = len(start_date_list)  # used for standardising
 
     # specify filters to apply to the GEE Sentinel-1 collection

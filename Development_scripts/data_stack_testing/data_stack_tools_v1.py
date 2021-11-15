@@ -795,8 +795,10 @@ def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_
     band='VV' # threshold needs changing if using VH and further testing 
     
     # generate list of months
-    start_date_list=[d.strftime('%Y-%m-%d') for d in pd.date_range(start=start_date_str, 
+    start_date_list = [d.strftime('%Y-%m-%d') for d in pd.date_range(start=start_date_str,
                                                                    end=end_date_str, freq='MS')]
+    # omit the winter months (jan, feb, nov, dec)
+    start_date_list = [k for k in start_date_list if (int(k[5:7]) > 2) and (int(k[5:7]) < 11)]
     n_months = len(start_date_list)  # used for standardising
     
     # specify filters to apply to the GEE Sentinel-1 collection

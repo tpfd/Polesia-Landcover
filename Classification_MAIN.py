@@ -103,6 +103,7 @@ if training_data_resample_toggle:
                                'Simple classes', 'Simple',
                                class_export_dir, plot_dir, class_col_name)
 else:
+    print('Not resampling raw training data...')
     pass
 
 # Run tree and training data size optimization if so toggled
@@ -186,9 +187,11 @@ clf_simple = generate_RF_model('Simple', int(trees_simple), train_simple, class_
 
 # Generate classification performance stats
 if advanced_performance_stats_toggle:
+    print('doing advanced accuracy assessment...')
     accuracy_assessment_full(clf_complex, test_complex, 'Complex_RF_', fp_export_dir)
     accuracy_assessment_full(clf_simple, test_simple, 'Simple_RF_', fp_export_dir)
 elif performance_stats_toggle:
+    print('doing basic accuracy assessment...')
     accuracy_assessment_basic(clf_complex, test_complex, 'Complex_RF_')
     accuracy_assessment_basic(clf_simple, test_simple, 'Simple_RF_')
 else:
