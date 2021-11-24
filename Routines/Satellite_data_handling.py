@@ -37,6 +37,7 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
         'S2BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B11', 'B12']  # list of str, which S2 bands to return?
     }
 
+    print('Getting satellite data...')
     #s1_stack = fetch_sentinel1_v2(aoi, date_list)
     s2_stack = fetch_sentinel2_v3(aoi, date_list, s2_params)
     flood_index = fetch_sentinel1_flood_index_v1(aoi,
@@ -46,7 +47,6 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
                                                  flood_thresh=-13.0)
     # #combined_stack = s1_stack.addBands(s2_stack)
     combined_stack = s2_stack.addBands(flood_index)
-    #combined_stack = s2_stack  #TODO: tmpry testing!
 
     # Calculate indices on raw data
     print('Calculating indices...')
@@ -64,7 +64,7 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
     print('Normalising all bands with min-max...')
     counter = 0
     band_names = combined_stack.bandNames().getInfo()
-    #normed_combined_stack = ee.ImageCollection()   # TODO: TypeError: __init__() missing 1 required positional argument: 'args'
+
     for i in band_names:
         counter = counter + 1
         norm_band = combined_stack.select(i).unitScale(min_dict.get(i), max_dict.get(i))
@@ -158,9 +158,6 @@ def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_
     : param flood_thresh: float, VV values < flood_thresh are considered flooded.
     : returns : flood frequency map [0-1]
     """
-
-    print('fetch_sentinel1_flood_index_v1(): hello!')
-
     def s1_mask_border_noise(img):
         """
         Sentinel-1 data on GEE sometimes suffers from 'border noise' prior to May 2018 at swath edges.
@@ -188,7 +185,6 @@ def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_
 
     # iteratively generate a monthly flood map and aggregate them
     for i, start_date in enumerate(start_date_list):
-        print(f'fetch_sentinel1_flood_index_v1(): processing month {start_date}')
         end_date = ee.Date(start_date).advance(1, 'month')
 
         # load, preprocess and make composite
@@ -214,7 +210,6 @@ def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_
 
     # Standardise & rename
     flood_aggr = flood_aggr.divide(n_months).rename("s1_floodfreq")
-    print('fetch_sentinel1_flood_index_v1(): bye!')
     return flood_aggr
 
 
@@ -237,9 +232,6 @@ def fetch_sentinel2_v3(aoi, date_list, s2_params):
     :param s2_params: dict, contains parameters used for cloud & shadow masking
     :return: ee.image.Image, stack of monthly composite images of bands specified in s2_params
     """
-
-    print('fetch_sentinel2(): hello!')
-
     def get_s2_sr_cld_col(aoi, start_date, end_date):
         """
         get & join the S2_SR and S2_CLOUD_PROBABILITY collections
@@ -403,7 +395,6 @@ def fetch_sentinel2_v3(aoi, date_list, s2_params):
 
     # iteratively fetch each month of Sentinel-2 imagery and generate a median composite for the AOI
     for i, date_tuple in enumerate(date_list):
-        print(f'fetch_sentinel2(): processing period: {date_tuple[0]} to {date_tuple[1]}')
         new_band_names = [f'S2_{x}_{date_tuple[0]}_{date_tuple[1]}' for x in S2BANDS]
         start_date = ee.Date(date_tuple[0])
         end_date = ee.Date(date_tuple[1])
@@ -431,8 +422,8 @@ def fetch_sentinel2_v3(aoi, date_list, s2_params):
             s2cldless_median = fill_cloud_gaps(img_orig=s2cldless_median,
                                                img_fill=s2cldless_median_fill)
         else:
-            print(
-                f"fetch_sentinel2():Skipping cloud gap filling; no S2 data prior to 2017-03-28 available in GEE, cannot fill cloud gaps for {date_tuple[0]}-{date_tuple[1]} with previous year of data")
+            print(f"fetch_sentinel2():Skipping cloud gap filling; no S2 data prior to 2017-03-28 available in GEE, "
+                  f"cannot fill cloud gaps for {date_tuple[0]}-{date_tuple[1]} with previous year of data")
 
         # rename bands
         s2cldless_median = s2cldless_median.rename(new_band_names)
@@ -442,7 +433,6 @@ def fetch_sentinel2_v3(aoi, date_list, s2_params):
             median_stack = s2cldless_median
         else:
             median_stack = median_stack.addBands(s2cldless_median)
-    print('fetch_sentinel2(): bye!')
     return median_stack
 
 
@@ -457,8 +447,6 @@ def fetch_sentinel1_v2(aoi, date_list):
     :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each compositing period, expects 'YYYY-MM-DD' format
     :return: ee.image.Image, stack of composite images
     """
-    print('fetch_sentinel1(): hello!')
-
     S1BANDS = ['VV', 'VH']
 
     # specify filters to apply to the GEE Sentinel-1 collection
@@ -469,7 +457,6 @@ def fetch_sentinel1_v2(aoi, date_list):
 
     # iteratively fetch each month of Sentinel-1 imagery and generate a median composite for the AOI
     for i, date_tuple in enumerate(date_list):
-        print(f'fetch_sentinel1(): processing period: {date_tuple[0]} to {date_tuple[1]}')
         new_band_names = [f'S1_{x}_{date_tuple[0]}_{date_tuple[1]}' for x in S1BANDS]
         start_date = ee.Date(date_tuple[0])
         end_date = ee.Date(date_tuple[1])
@@ -490,7 +477,5 @@ def fetch_sentinel1_v2(aoi, date_list):
             median_stack = s1_median
         else:
             median_stack = median_stack.addBands(s1_median)
-
-    print('fetch_sentinel1(): bye!')
     return median_stack
 
