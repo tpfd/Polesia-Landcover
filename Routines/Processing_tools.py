@@ -39,7 +39,11 @@ def tile_polygon(fpath_poly, tile_size, fp_export_dir, type_dir):
 
 def shapefile_writer(shapely_polygon, name):
     gdr = geopandas.GeoDataFrame(index=[0], geometry=[shapely_polygon], crs='EPSG:4326')
-    gdr.to_file(name+".shp")
+    file_out = name+".shp"
+    if os.path.exists(name+".shp"):
+        pass
+    else:
+        gdr.to_file(file_out)
 
 
 def rhombus(square):
@@ -95,7 +99,6 @@ def get_squares_from_rect(RectangularPolygon, side_length=0.0025):
     for splitter in horizontal_splitters:
         result = MultiPolygon(split(result, splitter))
     square_polygons = list(result)
-
     return square_polygons
 
 
