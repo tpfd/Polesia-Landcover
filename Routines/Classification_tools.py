@@ -11,7 +11,7 @@ import os
 import csv
 import shutil
 sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
-from Utilities import table_writer, get_max_acc, match_result_lengths, get_list_of_files
+from Utilities import table_writer, get_max_acc, match_result_lengths, get_list_of_files, line_plot
 from Training_data_handling import load_sample_training_data
 from Satellite_data_handling import create_data_stack_v2
 from Processing_tools import tile_polygon
@@ -163,28 +163,30 @@ def accuracy_assessment_full(clf, test, export_name, fp_export_dir):
     return test_overall_accuracy
 
 
-def training_data_size_optimize(type_switch, bands_in, points_name_simple, points_name_complex):
-    training_test_vals = [500, 750, 1000, 1250, 1500, 1750, 2000,
+def training_data_size_optimize(root_train_fpath, aoi, training_type, label, year, plots_out_dir):
+    year = str(year)
+    date_list = [(year + '-03-01', year + '-03-30'),
+                 (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
+                 (year + '-06-01', year + '-06-30'), (year + '-07-01', year + '-07-30'),
+                 (year + '-10-01', year + '-10-30')]
+    stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, None)
+    band_names = stack.bandNames()
+    trainingbands = band_names.getInfo()
+
+    training_test_vals = [250, 500, 750, 1000, 1250, 1500, 1750, 2000,
                           2250, 2500, 2750, 2800, 2850, 2900, 3000,
                           3250, 3500, 4000, 4250, 4500, 4750, 5000]
     result_trainsize_vals = []
     for i in training_test_vals:
         try:
-            if type_switch == 'Complex':
-                fp = points_name_complex + str(i) + ".shp"
-                train, test = load_sample_training_data(fp, bands_in)
-                clf = apply_random_forest(train, 'RF_complex_train_'+str(i), 150, bands_in)
-                val = accuracy_assessment_basic(clf, test, 'RF_stackv2_train_'+str(i))
-                result_trainsize_vals.append(val)
-            elif type_switch == 'Simple':
-                fp = points_name_simple + str(i) + ".shp"
-                train, test = load_sample_training_data(fp, bands_in)
-                clf = apply_random_forest(train, 'RF_complex_train_'+str(i), 150, bands_in)
-                val = accuracy_assessment_basic(clf, test, 'RF_stackv2_train_'+str(i))
-                result_trainsize_vals.append(val)
-            else:
-                print('Specify classes type: Simple or Complex')
-                break
+            fp = root_train_fpath + training_type + '_points_' + str(i) + '_v4' + ".shp"
+            train, test = load_sample_training_data(fp, trainingbands)
+            clf = generate_RF_model(150, train, label, trainingbands)
+            val = accuracy_assessment_basic(clf,
+                                            test,
+                                            training_type + '_' + str(i),
+                                            label)
+            result_trainsize_vals.append(val)
         except:
             val = np.nan
             result_trainsize_vals.append(val)
@@ -192,25 +194,37 @@ def training_data_size_optimize(type_switch, bands_in, points_name_simple, point
 
     training_test_vals = match_result_lengths(training_test_vals, result_trainsize_vals)
     max_acc, training_size = get_max_acc(training_test_vals, result_trainsize_vals)
-    return training_test_vals, result_trainsize_vals, max_acc, training_size
+
+    x_label = 'Training data size ' + training_type
+    line_plot(training_test_vals, result_trainsize_vals, x_label, plots_out_dir)
+    print('Best training size =', training_size)
+    return
 
 
-def trees_size_optimize(type_switch, bands_in, train, test):
-    trees_test_vals = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450]
+def trees_size_optimize(fp_train_points, aoi, training_type, label, plots_out_dir, scale):
+    year = str(2018)
+    date_list = [(year + '-03-01', year + '-03-30'),
+                 (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
+                 (year + '-06-01', year + '-06-30'), (year + '-07-01', year + '-07-30'),
+                 (year + '-10-01', year + '-10-30')]
+    stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, None)
+    band_names = stack.bandNames()
+    trainingbands = band_names.getInfo()
+
+    train, test = load_sample_training_data(fp_train_points, trainingbands, stack, scale, label)
+
+    trees_test_vals = [25, 50, 75, 100, 125, 150, 175, 200, 225,
+                       250, 275, 300, 325, 350, 375, 400, 425, 450]
     result_trees_vals = []
     for i in trees_test_vals:
         try:
-            if type_switch == 'Complex':
-                clf = apply_random_forest(train, 'RF_complex_trees_'+str(i), i, bands_in)
-                val = accuracy_assessment_basic(clf, test, 'RF_complex_trees'+str(i))
-                result_trees_vals.append(val)
-            elif type_switch == 'Simple':
-                clf = apply_random_forest(train, 'RF_simple_trees_' + str(i), i, bands_in)
-                val = accuracy_assessment_basic(clf, test, 'RF_simple_trees' + str(i))
-                result_trees_vals.append(val)
-            else:
-                print('Specify classes type: Simple or Complex')
-                break
+            clf = generate_RF_model(i, train, label, trainingbands)
+            val = accuracy_assessment_basic(clf,
+                                            test,
+                                            training_type + '_' + str(i),
+                                            label)
+            result_trees_vals.append(val)
+
         except:
             val = np.nan
             result_trees_vals.append(val)
@@ -218,4 +232,8 @@ def trees_size_optimize(type_switch, bands_in, train, test):
 
     trees_test_vals = match_result_lengths(trees_test_vals, result_trees_vals)
     max_acc, tree_size = get_max_acc(trees_test_vals, result_trees_vals)
-    return trees_test_vals, result_trees_vals, max_acc, tree_size
+
+    x_label = 'Trees ' + training_type
+    line_plot(trees_test_vals, result_trees_vals, x_label, plots_out_dir)
+    print('Best tree size =', tree_size)
+    return

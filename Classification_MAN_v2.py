@@ -13,11 +13,10 @@ User defined variables
 # Processing and output options
 accuracy_eval_toggle = False
 
-# User settings
+# File paths and directories for classification pipeline
 #base_dir = '/home/markdj/Dropbox/artio/polesia'
 base_dir = 'D:/tpfdo/Documents/Artio_drive/Projects/Polesia'
 
-# File paths and directories for classification pipeline
 fp_train_ext = f"{base_dir}/Project_area.shp"
 complex_training_fpath = f"{base_dir}/Training_data/Complex_points_2000_v4.shp"
 simple_training_fpath = f"{base_dir}/Training_data/Simple_points_2000_v4.shp"
