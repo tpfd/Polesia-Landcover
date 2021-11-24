@@ -5,7 +5,7 @@ import sys
 import pandas as pd
 import matplotlib.pyplot as plt
 # sys.path.append("/home/markdj/repos/Polesia-Landcover/data_stack_testing/")
-sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/data_stack_testing/")
+sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Development_scripts/data_stack_testing/")
 import ee
 import numpy as np
 import os
@@ -333,8 +333,10 @@ def trees_size_optimize(type_switch, bands_in, train, test):
 def optimised_classification_run(bands_in, train_size, tree_size, run_name, type_switch):
     fp = "D:/tpfdo/Documents/Artio_drive/Projects/Polesia/Training_data/" + type_switch + "_points_" + str(train_size)\
          + "_v4.shp"
+    band_names = bands_in.bandNames()
+    trainingbands = band_names.getInfo()
     train, test = load_sample_training_data(fp, bands_in)
-    clf = apply_random_forest(train, run_name, tree_size, bands_in)
+    clf = apply_random_forest(train, run_name, tree_size, trainingbands)
     acc_val = accuracy_assessment(clf, test, run_name)
     return acc_val, clf
 
@@ -385,6 +387,16 @@ train_complex, test_complex = load_sample_training_data(fp_train_points_complex,
 train_simple, test_simple = load_sample_training_data(fp_train_points_simple, trainingbands)
 
 
+training_test, result_trainsize, opti_trainSize = training_data_size_optimize('Simple', trainingbands)
+
+# Stand alone (optimised) classification
+opti_trainSize = 2000
+opti_treeSize = 150
+acc_val_simple, clf_simple = optimised_classification_run(stack,
+                                                          opti_trainSize, opti_treeSize,
+                                                          'Optimum_simple_', 'Simple')
+
+
 """
 Class spectral analysis
 """
@@ -403,10 +415,8 @@ line_plot(training_test, result_trainsize, 'Training data sample size (reduced s
 trees_test, result_trees, opti_treeSize = trees_size_optimize('Simple', trainingbands, train_simple, test_simple)
 line_plot(trees_test, result_trees, 'Number of trees (reduced stack - simple classes)')
 
-# Stand alone (optimised) classification
-acc_val_simple, clf_simple = optimised_classification_run(trainingbands,
-                                                          opti_trainSize, opti_treeSize,
-                                                          'Optimum_simple_', 'Simple')
+
+
 
 # Feature importance analysis
 feature_importance_analysis(clf_simple, 'Optimum_simple_')

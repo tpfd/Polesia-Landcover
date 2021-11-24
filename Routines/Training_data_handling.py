@@ -5,12 +5,8 @@ data, as required by the Polesia classification routines.
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from geemap import geemap
-import numpy as np
 import ee
 import sys
-sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
-from Classification_tools import apply_random_forest, accuracy_assessment_basic
-from Utilities import get_max_acc, match_result_lengths
 
 ee.Initialize()
 
@@ -91,61 +87,3 @@ def resample_training_data(sample_size, data, type_name, class_export_dir, class
     export_name = class_export_dir + type_name + str(sample_size) + ".shp"
     data.to_file(export_name)
     print(str(sample_size), " exported")
-
-
-def training_data_size_optimize(type_switch, bands_in, points_name_simple, points_name_complex):
-    training_test_vals = [500, 750, 1000, 1250, 1500, 1750, 2000,
-                          2250, 2500, 2750, 2800, 2850, 2900, 3000,
-                          3250, 3500, 4000, 4250, 4500, 4750, 5000]
-    result_trainsize_vals = []
-    for i in training_test_vals:
-        try:
-            if type_switch == 'Complex':
-                fp = points_name_complex + str(i) + ".shp"
-                train, test = load_sample_training_data(fp, bands_in)
-                clf = apply_random_forest(train, 'RF_complex_train_'+str(i), 150, bands_in)
-                val = accuracy_assessment_basic(clf, test, 'RF_stackv2_train_'+str(i))
-                result_trainsize_vals.append(val)
-            elif type_switch == 'Simple':
-                fp = points_name_simple + str(i) + ".shp"
-                train, test = load_sample_training_data(fp, bands_in)
-                clf = apply_random_forest(train, 'RF_complex_train_'+str(i), 150, bands_in)
-                val = accuracy_assessment_basic(clf, test, 'RF_stackv2_train_'+str(i))
-                result_trainsize_vals.append(val)
-            else:
-                print('Specify classes type: Simple or Complex')
-                break
-        except:
-            val = np.nan
-            result_trainsize_vals.append(val)
-            break
-
-    training_test_vals = match_result_lengths(training_test_vals, result_trainsize_vals)
-    max_acc, training_size = get_max_acc(training_test_vals, result_trainsize_vals)
-    return training_test_vals, result_trainsize_vals, max_acc, training_size
-
-
-def trees_size_optimize(type_switch, bands_in, train, test):
-    trees_test_vals = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450]
-    result_trees_vals = []
-    for i in trees_test_vals:
-        try:
-            if type_switch == 'Complex':
-                clf = apply_random_forest(train, 'RF_complex_trees_'+str(i), i, bands_in)
-                val = accuracy_assessment_basic(clf, test, 'RF_complex_trees'+str(i))
-                result_trees_vals.append(val)
-            elif type_switch == 'Simple':
-                clf = apply_random_forest(train, 'RF_simple_trees_' + str(i), i, bands_in)
-                val = accuracy_assessment_basic(clf, test, 'RF_simple_trees' + str(i))
-                result_trees_vals.append(val)
-            else:
-                print('Specify classes type: Simple or Complex')
-                break
-        except:
-            val = np.nan
-            result_trees_vals.append(val)
-            break
-
-    trees_test_vals = match_result_lengths(trees_test_vals, result_trees_vals)
-    max_acc, tree_size = get_max_acc(trees_test_vals, result_trees_vals)
-    return trees_test_vals, result_trees_vals, max_acc, tree_size

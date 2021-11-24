@@ -8,19 +8,6 @@ import pandas as pd
 ee.Initialize()
 
 
-def stack_builder_run(aoi, year, max_min_values_input=None):
-    year = str(year)
-    date_list = [(year+'-03-01', year+'-03-30'),
-                 (year+'-04-01', year+'-04-30'), (year+'-05-01', year+'-05-31'),
-                 (year+'-06-01', year+'-06-30'), (year+'-07-01', year+'-07-30'),
-                 (year+'-10-01', year+'-10-30')]
-    stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, max_min_values_input)
-    band_names = stack.bandNames()
-    trainingbands = band_names.getInfo()
-    print('Training bands are:', trainingbands)
-    return stack, trainingbands, max_min_values_output
-
-
 def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
     """
     Convenience function to compile and combine all distinct dataset sub-stacks
@@ -52,14 +39,14 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
 
     #s1_stack = fetch_sentinel1_v2(aoi, date_list)
     s2_stack = fetch_sentinel2_v3(aoi, date_list, s2_params)
-    # flood_index = fetch_sentinel1_flood_index_v1(aoi,
-    #                                             str((int(year)-1))+'-01-01',
-    #                                             year+'-12-01',
-    #                                             smoothing_radius=100.0,
-    #                                             flood_thresh=-13.0)
+    flood_index = fetch_sentinel1_flood_index_v1(aoi,
+                                                 str((int(year)-1))+'-01-01',
+                                                 year+'-12-01',
+                                                 smoothing_radius=100.0,
+                                                 flood_thresh=-13.0)
     # #combined_stack = s1_stack.addBands(s2_stack)
-    # combined_stack = s2_stack.addBands(flood_index)
-    combined_stack = s2_stack  #TODO: tmpry testing!
+    combined_stack = s2_stack.addBands(flood_index)
+    #combined_stack = s2_stack  #TODO: tmpry testing!
 
     # Calculate indices on raw data
     print('Calculating indices...')
@@ -402,8 +389,7 @@ def fetch_sentinel2_v3(aoi, date_list, s2_params):
         img_new = img_orig.unmask(-99999)  # masked locations
         fill_pixels = img_new.eq(-99999)  # binary mask with value = 1 where we want to fill
         img_new = img_new.where(fill_pixels, img_fill)  # fill img_new with img_fill where fill_pixels==1
-        mask = img_new.neq(
-            -99999)  # -99999 will remain where no valid pixels in img_fill (i.e. cloudy in both), so remask
+        mask = img_new.neq(-99999)  # -99999 will remain where no valid pixels in img_fill (i.e. cloudy in both), so remask
         img_new = img_new.mask(mask)
         return img_new
 

@@ -25,8 +25,8 @@ import sys
 import os
 from geemap import geemap
 import shutil
-#sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
-sys.path.append("/home/markdj/repos/Polesia-Landcover/Routines/")
+sys.path.append("/Polesia-Landcover/Routines/")
+#sys.path.append("/home/markdj/repos/Polesia-Landcover/Routines/")
 from Training_data_handling import run_resample_training_data, load_sample_training_data,\
     training_data_size_optimize, trees_size_optimize
 from Satellite_data_handling import stack_builder_run
@@ -41,7 +41,7 @@ User defined variables
 # Processing and output options
 training_data_resample_toggle = False
 plot_toggle = True
-performance_stats_toggle = True
+performance_stats_toggle = False
 advanced_performance_stats_toggle = False
 optimisation_toggle = False
 use_presets = True
@@ -51,22 +51,21 @@ class_col_name = 'VALUE'
 scale = 20
 years_to_map = [2018]
 
-base_dir = '/home/markdj/Dropbox/artio/polesia'
-# base_dir = 'D:/tpfdo/Documents/Artio_drive/Projects/Polesia'
+#base_dir = '/home/markdj/Dropbox/artio/polesia'
+base_dir = 'D:/tpfdo/Documents/Artio_drive/Projects/Polesia'
 
 # File paths and directories for classification pipeline
 fp_train_ext = f"{base_dir}/Project_area.shp"
 fp_target_ext = f"{base_dir}/whole_map.shp"
 fp_export_dir = f"{base_dir}/Classified/"
-# fp_settings_txt = f"{base_dir}/RF_classif_setting.csv"   # TODO: should there really be fixed paths in here? either all paths in .csv, or MAIN, not both
-fp_settings_txt = f"{base_dir}/RF_classif_setting_mdj.csv"
+fp_settings_txt = f"{base_dir}/RF_classif_setting.csv"   # TODO: should there really be fixed paths in here? either all paths in .csv, or MAIN, not both
+#fp_settings_txt = f"{base_dir}/RF_classif_setting_mdj.csv"
 plot_dir = f"{base_dir}/Plots/"
 
 # File paths to shapefiles of target class points and the export dir for their resampling
 complex_training_fpath = f"{base_dir}/Training_data/Complex_swamp_points_v4.shp"
 simple_training_fpath = f"{base_dir}/Training_data/Simple_swamp_points_v4.shp"
 class_export_dir = f"{base_dir}/Training_data/"
-
 
 
 """
@@ -84,7 +83,7 @@ stack, training_bands, max_min_values_training = stack_builder_run(aoi, 2018)
 if use_presets:
     if os.path.isfile(fp_settings_txt):
         ('loading preset classification parameters from file...')
-        fp_train_simple_points, fp_train_complex_points, trees_complex, training_complex, trees_simple, \
+        fp_train_simple_points, fp_train_complex_points, trees_complex, training_complex, trees_simple,\
         training_simple = load_presets(fp_settings_txt)
     else:
         print('No preset available, set use_presets to False, optimisation_toggle to True and run again (or check '
@@ -187,11 +186,11 @@ clf_simple = generate_RF_model('Simple', int(trees_simple), train_simple, class_
 
 # Generate classification performance stats
 if advanced_performance_stats_toggle:
-    print('doing advanced accuracy assessment...')
+    print('Doing advanced accuracy assessment...')
     accuracy_assessment_full(clf_complex, test_complex, 'Complex_RF_', fp_export_dir)
     accuracy_assessment_full(clf_simple, test_simple, 'Simple_RF_', fp_export_dir)
 elif performance_stats_toggle:
-    print('doing basic accuracy assessment...')
+    print('Doing basic accuracy assessment...')
     accuracy_assessment_basic(clf_complex, test_complex, 'Complex_RF_')
     accuracy_assessment_basic(clf_simple, test_simple, 'Simple_RF_')
 else:
@@ -215,8 +214,9 @@ for i in process_list:
     process_aoi = geemap.shp_to_ee(i)
     for j in years_to_map:
         for k in tile_list:
-            stack_map, training_bands_map = stack_builder_run(process_aoi, j, max_min_values_training)
-            export_name = 'PArea_' + str(j)+'_tile_'+process_num+'_RF_'
+            stack_map, training_bands_map, max_min_values_output = stack_builder_run(process_aoi, j,
+                                                                                     max_min_values_training)
+            export_name = 'PArea_' + str(j)+'_tile'+str(k)+'_'+process_num+'_RF_'
             apply_random_forest(export_name + 'Complex', training_bands_map, k, stack_map, scale, fp_export_dir,
                                 clf_complex)
             apply_random_forest(export_name + 'Simple', training_bands_map, k, stack_map, scale, fp_export_dir,
