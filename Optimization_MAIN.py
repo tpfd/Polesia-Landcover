@@ -31,9 +31,7 @@ Optimization
 # Hard coded variables
 aoi = geemap.shp_to_ee(fp_train_ext)
 label = "VALUE"
-training_year = "2018"
 scale = 20
-years_to_map = [2018]
 
 # Set up folders
 if not os.path.isdir(plots_out_dir):
