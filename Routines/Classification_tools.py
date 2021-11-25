@@ -163,7 +163,7 @@ def accuracy_assessment_full(clf, test, export_name, fp_export_dir):
     return test_overall_accuracy
 
 
-def training_data_size_optimize(root_train_fpath, aoi, training_type, label, year, plots_out_dir):
+def training_data_size_optimize(root_train_fpath, aoi, training_type, label, year, plots_out_dir, scale):
     year = str(year)
     date_list = [(year + '-03-01', year + '-03-30'),
                  (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
@@ -179,8 +179,8 @@ def training_data_size_optimize(root_train_fpath, aoi, training_type, label, yea
     result_trainsize_vals = []
     for i in training_test_vals:
         try:
-            fp = root_train_fpath + training_type + '_points_' + str(i) + '_v4' + ".shp"
-            train, test = load_sample_training_data(fp, trainingbands)
+            fp = root_train_fpath + training_type + '_points_' + str(i) + ".shp"
+            train, test = load_sample_training_data(fp, trainingbands, stack, scale, label)
             clf = generate_RF_model(150, train, label, trainingbands)
             val = accuracy_assessment_basic(clf,
                                             test,
@@ -197,7 +197,7 @@ def training_data_size_optimize(root_train_fpath, aoi, training_type, label, yea
 
     x_label = 'Training data size ' + training_type
     line_plot(training_test_vals, result_trainsize_vals, x_label, plots_out_dir)
-    print('Best training size =', training_size)
+    print('Best training size for '+training_type + ' = ' + str(training_size))
     return
 
 
@@ -235,5 +235,5 @@ def trees_size_optimize(fp_train_points, aoi, training_type, label, plots_out_di
 
     x_label = 'Trees ' + training_type
     line_plot(trees_test_vals, result_trees_vals, x_label, plots_out_dir)
-    print('Best tree size =', tree_size)
+    print('Best tree size for '+training_type + ' = ' + str(tree_size))
     return

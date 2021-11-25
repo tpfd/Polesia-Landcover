@@ -19,10 +19,12 @@ base_dir = 'D:/tpfdo/Documents/Artio_drive/Projects/Polesia'
 
 fp_train_ext = f"{base_dir}/Project_area.shp"
 root_train_fpath = f"{base_dir}/Training_data/"
-complex_training_fpath = f"{base_dir}/Training_data/Complex_points_2000_v4.shp"
-simple_training_fpath = f"{base_dir}/Training_data/Simple_points_2000_v4.shp"
-plots_out_dir = f"{base_dir}/Plots"
+complex_training_fpath = f"{base_dir}/Training_data/Complex_points_2000.shp"
+simple_training_fpath = f"{base_dir}/Training_data/Simple_points_2000.shp"
+plots_out_dir = f"{base_dir}/Plots/"
 
+label = "VALUE"
+scale = 20
 
 """
 Optimization
@@ -30,8 +32,6 @@ Optimization
 """
 # Hard coded variables
 aoi = geemap.shp_to_ee(fp_train_ext)
-label = "VALUE"
-scale = 20
 
 # Set up folders
 if not os.path.isdir(plots_out_dir):
@@ -42,5 +42,5 @@ trees_size_optimize(complex_training_fpath, aoi, 'Complex', label, plots_out_dir
 trees_size_optimize(simple_training_fpath, aoi, 'Simple', label, plots_out_dir, scale)
 
 # Optimize for training data size per class
-training_data_size_optimize(root_train_fpath, aoi, 'Complex', label, 2018, plots_out_dir)
-training_data_size_optimize(root_train_fpath, aoi, 'Simple', label, 2018, plots_out_dir)
+training_data_size_optimize(root_train_fpath, aoi, 'Complex', label, 2018, plots_out_dir, scale)
+training_data_size_optimize(root_train_fpath, aoi, 'Simple', label, 2018, plots_out_dir, scale)

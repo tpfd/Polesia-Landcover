@@ -21,6 +21,7 @@ def line_plot(x, y, x_label, fp_export_dir):
     plt.xlabel(x_label)
     plt.ylabel('Accuracy vs test (%)')
     plt.savefig(fp_export_dir+x_label+'.png')
+    plt.close('all')
 
 
 def get_max_acc(test_vals, result):

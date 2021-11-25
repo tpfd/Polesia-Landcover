@@ -45,7 +45,7 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
                                                  year+'-12-01',
                                                  smoothing_radius=100.0,
                                                  flood_thresh=-13.0)
-    # #combined_stack = s1_stack.addBands(s2_stack)
+    #combined_stack = s1_stack.addBands(s2_stack)
     combined_stack = s2_stack.addBands(flood_index)
 
     # Calculate indices on raw data
@@ -73,6 +73,7 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
         else:
             normed_combined_stack = normed_combined_stack.addBands(norm_band)
     print('Normalisation complete!')
+    #print(band_names)
     return normed_combined_stack, (max_dict, min_dict)
 
 
@@ -104,7 +105,7 @@ def calc_EVI(combined_stack, band_date_ID_B8, band_date_ID_B4,  band_date_ID_B2,
 
 def calc_AVI(combined_stack, band_date_ID_B8, band_date_ID_B4, month):
     new_name = 'AVI_'+month
-    AVI = combined_stack.expression('(B8 * (1-B4)*(B8-B4))**0.3', {
+    AVI = combined_stack.expression('(B8 * (1-B4)*(B8-B4))', {
         'B8': combined_stack.select(band_date_ID_B8).multiply(0.0001),
         'B4': combined_stack.select(band_date_ID_B4).multiply(0.0001)}).rename(new_name)
     return AVI
