@@ -40,10 +40,16 @@ def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_compl
                 try:
                     yearly_classifier_function(j, k, process_num, scale,
                                                fp_export_dir, clf_complex, 'Complex', max_min_values_complex)
+                except Exception as e:
+                    print('Tile ' + k + ' failed to process Complex with exception:')
+                    print(e)
+                    continue
+
+                try:
                     yearly_classifier_function(j, k, process_num, scale,
                                                fp_export_dir, clf_simple, 'Simple', max_min_values_simple)
                 except Exception as e:
-                    print('Tile '+ k + 'failed to process with exception:')
+                    print('Tile ' + k + ' failed to process Simple with exception:')
                     print(e)
                     continue
 
