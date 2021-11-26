@@ -37,10 +37,15 @@ def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_compl
         tile_list = get_list_of_files(fp_export_dir + process_num + '_tiles/', ".shp")
         for j in years_to_map:
             for k in tile_list:
-                yearly_classifier_function(j, k, process_num, scale,
-                                           fp_export_dir, clf_complex, 'Complex', max_min_values_complex)
-                yearly_classifier_function(j, k, process_num, scale,
-                                           fp_export_dir, clf_simple, 'Simple', max_min_values_simple)
+                try:
+                    yearly_classifier_function(j, k, process_num, scale,
+                                               fp_export_dir, clf_complex, 'Complex', max_min_values_complex)
+                    yearly_classifier_function(j, k, process_num, scale,
+                                               fp_export_dir, clf_simple, 'Simple', max_min_values_simple)
+                except Exception as e:
+                    print('Tile '+ k + 'failed to process with exception:')
+                    print(e)
+                    continue
 
         shutil.rmtree(tile_dir)
 

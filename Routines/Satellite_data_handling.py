@@ -73,7 +73,7 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
         else:
             normed_combined_stack = normed_combined_stack.addBands(norm_band)
     print('Normalisation complete!')
-    #print(band_names)
+    print(band_names)
     return normed_combined_stack, (max_dict, min_dict)
 
 

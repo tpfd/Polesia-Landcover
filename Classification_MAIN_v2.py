@@ -11,7 +11,7 @@ from Classification_tools import RF_model_and_train, accuracy_assessment_basic, 
 User defined variables
 """
 # Processing and output options
-accuracy_eval_toggle = True
+accuracy_eval_toggle = False
 
 # File paths and directories for classification pipeline
 #base_dir = '/home/markdj/Dropbox/artio/polesia'
@@ -26,9 +26,9 @@ fp_export_dir = f"{base_dir}/Classified/"
 label = "VALUE"
 training_year = "2018"
 scale = 20
-trees_complex = 300
+trees_complex = 150
 trees_simple = 75
-years_to_map = [2018, 2019]
+years_to_map = [2018]
 
 """
 Classification pipeline
