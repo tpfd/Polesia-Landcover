@@ -21,7 +21,8 @@ ee.Initialize()
 
 def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_complex, clf_simple,
                     max_min_values_complex, max_min_values_simple):
-    print('Generating processing areas...')
+    print('map_target_area(): hello!')
+    print('map_target_area(): Generating processing areas...')
     process_size = 1.0
     process_dir = tile_polygon(fp_target_ext, process_size, fp_export_dir, 'processing_areas/')
     process_list = get_list_of_files(process_dir, ".shp")
@@ -29,19 +30,21 @@ def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_compl
     # Tile processing areas to allow GEE extraction
     tile_size = 0.1
     for i in process_list:
-        print('Generating tiles for processing area', str(i) + '...')
+        print('map_target_area(): Generating tiles for processing area', str(i) + '...')
         process_num = i.split('.')[0].split('/')[-1]
         tile_dir = tile_polygon(i, tile_size, fp_export_dir, process_num + '_tiles/')
 
         # Run the classification for the desired years over the processing areas and tiles
         tile_list = get_list_of_files(fp_export_dir + process_num + '_tiles/', ".shp")
         for j in years_to_map:
+            print('\nmap_target_area(): mapping year', str(j) + '...')
             for k in tile_list:
+                print('\nmap_target_area(): mapping tile', str(k) + '...')
                 try:
                     yearly_classifier_function(j, k, process_num, scale,
                                                fp_export_dir, clf_complex, 'Complex', max_min_values_complex)
                 except Exception as e:
-                    print('Tile ' + k + ' failed to process Complex with exception:')
+                    print('map_target_area(): Tile ' + k + ' failed to process Complex with exception:')
                     print(e)
                     continue
 
@@ -49,7 +52,7 @@ def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_compl
                     yearly_classifier_function(j, k, process_num, scale,
                                                fp_export_dir, clf_simple, 'Simple', max_min_values_simple)
                 except Exception as e:
-                    print('Tile ' + k + ' failed to process Simple with exception:')
+                    print('map_target_area(): Tile ' + k + ' failed to process Simple with exception:')
                     print(e)
                     continue
 
@@ -57,10 +60,12 @@ def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_compl
 
     # Clean up
     shutil.rmtree(process_dir)
+    print('map_target_area(): bye!')
 
 
 def yearly_classifier_function(year, k, process_num, scale,
                                fp_export_dir, clf, run_type, max_min_values):
+    print('yearly_classifier_function(): hello!')
     year = str(year)
     tile_num = k.split('.')[-2][-1]
     aoi = geemap.shp_to_ee(k)
@@ -74,9 +79,11 @@ def yearly_classifier_function(year, k, process_num, scale,
 
     export_name = 'PArea' + process_num + '_tile' + tile_num + '_RF_' + year + '_' + run_type
     apply_random_forest(export_name, training_bands, k, tile_stack, scale, fp_export_dir, clf)
+    print('yearly_classifier_function(): bye!')
 
 
 def RF_model_and_train(year, scale, label, aoi, fp_train_points, trees):
+    print('RF_model_and_train(): hello!')
     year = str(year)
     date_list = [(year + '-03-01', year + '-03-30'),
                  (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
@@ -89,9 +96,11 @@ def RF_model_and_train(year, scale, label, aoi, fp_train_points, trees):
     train, test = load_sample_training_data(fp_train_points, trainingbands, stack, scale, label)
     clf = generate_RF_model(trees, train,  label, trainingbands)
     return clf, test, max_min_values_output
+    print('RF_model_and_train(): bye!')
 
 
 def generate_RF_model(trees_num, train,  class_col_name, training_bands):
+    print('generate_RF_model(): hello!')
     init_params = {"numberOfTrees": trees_num,
                    "variablesPerSplit": None,
                    "minLeafPopulation": 1,
@@ -99,6 +108,7 @@ def generate_RF_model(trees_num, train,  class_col_name, training_bands):
                    "maxNodes": None,
                    "seed": 0}
     clf = ee.Classifier.smileRandomForest(**init_params).train(train, class_col_name, training_bands)
+    print('generate_RF_model(): bye!')
     return clf
 
 
@@ -107,8 +117,9 @@ def apply_random_forest(export_name, training_bands, fp_target_ext, stack, scale
     https://developers.google.com/earth-engine/apidocs/ee-classifier-smilerandomforest
     It downloads to the local export directory the applied RF classification.
     """
+    print('apply_random_forest(): hello!')
     # Carry out the Random Forest
-    print('Using random forest to classify region', export_name+'...')
+    print('apply_random_forest(): Using random forest to classify region', export_name+'...')
     target_area = geemap.shp_to_ee(fp_target_ext)
     target_stack = stack.clip(target_area)
     classified = target_stack.select(training_bands).classify(clf)
@@ -117,7 +128,8 @@ def apply_random_forest(export_name, training_bands, fp_target_ext, stack, scale
     file_out = fp_export_dir+export_name+'.tif'
     roi = target_area.geometry()
     geemap.ee_export_image(classified, filename=file_out, scale=scale, file_per_band=False, region=roi)
-    print('Random forest classification complete for', export_name+'!')
+    print('apply_random_forest(): Random forest classification complete for', export_name+'!')
+    print('apply_random_forest(): bye!')
 
 
 def accuracy_assessment_basic(clf, test, export_name, label):

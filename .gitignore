@@ -2,4 +2,5 @@
 *.pyc
 __pycache__
 .idea
-
+19.geojson
+whole_map.geojson

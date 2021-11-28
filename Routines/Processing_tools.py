@@ -13,6 +13,8 @@ def tile_polygon(fpath_poly, tile_size, fp_export_dir, type_dir):
     """
     https://stackoverflow.com/questions/8491927/algorithm-to-subdivide-a-polygon-in-smaller-polygons
     """
+    print('tile_polygon(): hello!')
+
     tile_dir = fp_export_dir+type_dir
     if not os.path.isdir(tile_dir):
         os.mkdir(tile_dir)
@@ -34,6 +36,7 @@ def tile_polygon(fpath_poly, tile_size, fp_export_dir, type_dir):
         counter = counter + 1
         name = tile_dir + str(counter)
         shapefile_writer(i, name)
+    print('tile_polygon(): bye!')
     return tile_dir
 
 
