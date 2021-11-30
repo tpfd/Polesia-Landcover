@@ -2,7 +2,7 @@ import sys
 import os
 from geemap import geemap
 sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
-sys.path.append("/home/markdj/repos/Polesia-Landcover/Routines/")
+sys.path.append("/Routines/")
 from Classification_tools import RF_model_and_train, accuracy_assessment_basic, map_target_area
 from Satellite_data_handling import create_data_stack_v2, fetch_sentinel1_flood_index_v1, fetch_sentinel2_v3
 
