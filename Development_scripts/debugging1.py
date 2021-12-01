@@ -2,9 +2,9 @@ import sys
 import os
 from geemap import geemap
 sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
-sys.path.append("/Routines/")
+sys.path.append("/home/markdj/repos/Polesia-Landcover/Routines/")
 from Classification_tools import RF_model_and_train, accuracy_assessment_basic, map_target_area
-from Satellite_data_handling import create_data_stack_v2, fetch_sentinel1_flood_index_v1, fetch_sentinel2_v3
+from Satellite_data_handling import create_data_stack_v2, fetch_sentinel1_flood_index_v1, fetch_sentinel2_v4 #fetch_sentinel2_v3
 
 
 s2_params = {
@@ -39,7 +39,7 @@ date_list = [(year + '-03-01', year + '-03-30'),
 stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, None)
 
 
-
+# sub function tests
 year = str(year)
 date_list = [(year + '-03-01', year + '-03-30'),
              (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
@@ -56,6 +56,25 @@ flood_index = fetch_sentinel1_flood_index_v1(aoi,
                                              flood_thresh=-13.0)
 print(flood_index.bandNames().getInfo())
 
-s2_stack = fetch_sentinel2_v3(aoi, date_list, s2_params)
+s2_stack = fetch_sentinel2_v4(aoi, date_list, s2_params)
 print(s2_stack.bandNames().getInfo())
 
+
+## test other issues in processing
+from Processing_tools import tile_polygon
+from Utilities import table_writer, get_max_acc, match_result_lengths, get_list_of_files, line_plot
+
+base_dir = '/home/markdj/Dropbox/artio/polesia'
+fp_target_ext = f"{base_dir}/whole_map.shp"
+fp_export_dir = f"{base_dir}/Classified/"
+process_size = 1.0
+
+process_dir = tile_polygon(fp_target_ext, process_size, fp_export_dir, 'processing_areas/')
+process_list = get_list_of_files(process_dir, ".shp")
+process_list.sort()
+
+tile_size = 0.1
+for i in process_list:
+    print('map_target_area(): Generating tiles for processing area', str(i) + '...')
+    process_num = i.split('.')[0].split('/')[-1] #TODO: process_num seems to only include the
+    print(process_num)

@@ -10,11 +10,12 @@ ee.Initialize()
 
 def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
     """
-    Convenience function to compile and combine all distinct dataset sub-stacks
-    * Sentinel 1 data bands: 'VV', 'VH'
+    Convenience function to compile and min-max scale all distinct dataset sub-stacks:
+    * Sentinel 1 flood frequency index
     * Sentinel 2 data bands: variable from 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12'
-    * topography data bands: slope, aspect & elevation [static, 30m SRTM derived]
-    > Changed topo to just be slope and aspect
+    * ** NO LONGER USED ** Sentinel 1 data bands: 'VV', 'VH'
+    * ** NO LONGER USED ** topography data bands: slope, aspect & elevation [static, 30m SRTM derived]
+    Also generates EVI & AVI indices from S2
 
     :: NEW FOR V2 ::
     * compositing period for S1 & S2 need start and end dates explicitly stated in 'date_list' (monthly composites no
@@ -32,7 +33,7 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
         'CLOUD_FILTER': 60,  # int, max cloud coverage (%) permitted in a scene
         'CLD_PRB_THRESH': 40,  # int, 's2cloudless' 'probability' band value > thresh = cloud
         'NIR_DRK_THRESH': 0.15,  # float, if Band 8 (NIR) < NIR_DRK_THRESH = possible shadow
-        'CLD_PRJ_DIST': 1,  # int, max distance [TODO: km or 100m?] from cloud edge for possible shadow
+        'CLD_PRJ_DIST': 1,  # int, max distance  from cloud edge for possible shadow [TODO: km or 100s of m?]
         'BUFFER': 50,  # int, distance (m) used to buffer cloud edges
         # 'S2BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12']
         'S2BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B11', 'B12']  # list of str, which S2 bands to return?
@@ -40,7 +41,8 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
 
     print('create_data_stack_v2(): Getting satellite data...')
     #s1_stack = fetch_sentinel1_v2(aoi, date_list)
-    s2_stack = fetch_sentinel2_v3(aoi, date_list, s2_params)
+    #s2_stack = fetch_sentinel2_v3(aoi, date_list, s2_params)
+    s2_stack = fetch_sentinel2_v4(aoi, date_list, s2_params, fill_mask_bkwd=True, fill_mask_fwd=True)
     flood_index = fetch_sentinel1_flood_index_v1(aoi,
                                                  str((int(year)-1))+'-01-01',
                                                  year+'-12-01',
@@ -220,7 +222,278 @@ def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_
     return flood_aggr
 
 
-def fetch_sentinel2_v3(aoi, date_list, s2_params):
+# def fetch_sentinel2_v3(aoi, date_list, s2_params):
+#     """
+#     fetch a datastack of Sentinel-2 composites, with cloud/shadow masking applied.
+#     most of the code to do this is derived from here:
+#     https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
+#
+#     :: NEW FOR V2 ::
+#     * compositing period start and end dates need to be explicitly stated in 'date_list' (monthly composites no longer assumed).
+#     * bands returned are now defined by 's2_params', rather than hard coded.
+#
+#     :: NEW FOR V3 ::
+#     * attempts to fill cloud gaps with same time window of data from the previous year
+#       NOTE: this is not applied if the first date in date_list tuple is before April 2018 (no sentinel data on GEE prior to Apr 2017)
+#
+#     :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent
+#     :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each compositing period, expects 'YYYY-MM-DD' format
+#     :param s2_params: dict, contains parameters used for cloud & shadow masking
+#     :return: ee.image.Image, stack of monthly composite images of bands specified in s2_params
+#     """
+#     print('fetch_sentinel2_v3(): hello!')
+#     def get_s2_sr_cld_col(aoi, start_date, end_date):
+#         """
+#         get & join the S2_SR and S2_CLOUD_PROBABILITY collections
+#
+#         uses globals:
+#             CLOUD_FILTER: max cloud coverage (%) permitted in a scene
+#
+#         :returns: ee.ImageCollection
+#         """
+#         # Import and filter S2 SR.
+#         s2_sr_col = (ee.ImageCollection('COPERNICUS/S2_SR')
+#                      .filterBounds(aoi)
+#                      .filterDate(start_date, end_date)
+#                      .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', CLOUD_FILTER)))
+#
+#         # Import and filter s2cloudless.
+#         s2_cloudless_col = (ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY')
+#                             .filterBounds(aoi)
+#                             .filterDate(start_date, end_date))
+#
+#         # Join the filtered s2cloudless collection to the SR collection by the 'system:index' property.
+#         return ee.ImageCollection(
+#             ee.Join.saveFirst('s2cloudless').apply(**{
+#                 'primary': s2_sr_col,
+#                 'secondary': s2_cloudless_col,
+#                 'condition': ee.Filter.equals(**{
+#                     'leftField': 'system:index',
+#                     'rightField': 'system:index'
+#                 })}))
+#
+#     def add_cld_shdw_mask(img):
+#         """
+#         generate a cloud and shadow mask band
+#         uses globals:
+#             BUFFER: distance (m) used to buffer cloud edges
+#         :returns: img with added cloud mask, shadow mask, and cloud-shadow mask
+#         """
+#
+#         # Add cloud component bands.
+#         img_cloud = add_cloud_bands(img)
+#
+#         # Add cloud shadow component bands.
+#         img_cloud_shadow = add_shadow_bands(img_cloud)
+#
+#         # Combine cloud and shadow mask, set cloud and shadow as value 1, else 0.
+#         is_cld_shdw = (img_cloud_shadow.select('clouds')
+#                        .add(img_cloud_shadow.select('shadows')).gt(0)
+#                        )
+#
+#         # Remove small cloud-shadow patches and dilate remaining pixels by BUFFER input.
+#         # 20 m scale is for speed, and assumes clouds don't require 10 m precision.
+#         # mdj TODO: confirmation that BUFFER is in [m]
+#         #           focal_max() default units = pixels (and pix res is 10m)
+#         #           so if BUFFER = 100
+#         #           100 * 0.1 = 10 pixels
+#         #           10 pix * 10 [pix res] = 100m
+#         is_cld_shdw = (is_cld_shdw.focal_min(2).focal_max(BUFFER * 2 / 20)
+#                        .reproject(**{'crs': img.select([0]).projection(), 'scale': 20})
+#                        .rename('cloudshadowmask'))
+#
+#         # Add the final cloud-shadow mask to the image.
+#         return img_cloud_shadow.addBands(is_cld_shdw)
+#
+#     def add_cloud_bands(img):
+#         """
+#         identify cloudy pixels using s2cloudless product probabilty band
+#
+#         uses globals:
+#             CLD_PRB_THRESH: s2cloudless 'probability' band value > thresh = cloud
+#
+#         :returns: img
+#         """
+#         # Get s2cloudless image, subset the probability band.
+#         cld_prb = ee.Image(img.get('s2cloudless')).select('probability')
+#
+#         # Condition s2cloudless by the probability threshold value.
+#         is_cloud = cld_prb.gt(CLD_PRB_THRESH).rename('clouds')
+#
+#         # Add the cloud probability layer and cloud mask as image bands.
+#         return img.addBands(ee.Image([cld_prb, is_cloud]))
+#
+#     def add_shadow_bands(img):
+#         """
+#         identify cloud shadows from intersection of:
+#             (1) darkest NIR scene pixels below NIR_DRK_THRESH that are not water
+#             (2) projected location of cloud shadows based on CLD_PRJ_DIST*10
+#
+#         uses globals:
+#             NIR_DRK_THRESH: if Band 8 (NIR) < NIR_DRK_THRESH = possible shadow
+#             CLD_PRJ_DIST:   max distnce [km or 100m?] from cloud edge for possible shadow
+#
+#         :returns: img
+#         """
+#         # Identify water pixels from the SCL band.
+#         not_water = img.select('SCL').neq(6)
+#
+#         # Identify dark NIR pixels that are not water (potential cloud shadow pixels).
+#         SR_BAND_SCALE = 1e4
+#         dark_pixels = (img.select('B8').lt(NIR_DRK_THRESH * SR_BAND_SCALE)
+#                        .multiply(not_water)
+#                        .rename('dark_pixels')
+#                        )
+#
+#         # Determine the direction to project cloud shadow from clouds (assumes UTM projection).
+#         shadow_azimuth = ee.Number(90).subtract(ee.Number(img.get('MEAN_SOLAR_AZIMUTH_ANGLE')))
+#
+#         # Project shadows from clouds for the distance specified by the CLD_PRJ_DIST input.
+#         # mdj TODO: check why CLD_PRJ_DIST*10? i'm not convinced CLD_PRJ_DIST is in km..
+#         #           'clouds' is 10m res.
+#         #           directionalDistanceTransform 2nd arg 'maxDistance' is in pixels
+#         #           so actually CLD_PRJ_DIST units = 100s of m?
+#         cld_proj = (img.select('clouds')
+#                     .directionalDistanceTransform(shadow_azimuth, CLD_PRJ_DIST * 10)
+#                     .reproject(**{'crs': img.select(0).projection(), 'scale': 100})
+#                     .select('distance')
+#                     .mask()
+#                     .rename('cloud_transform'))
+#
+#         # Identify the intersection of dark pixels with cloud shadow projection.
+#         shadows = cld_proj.multiply(dark_pixels).rename('shadows')
+#
+#         # Add dark pixels, cloud projection, and identified shadows as image bands.
+#         return img.addBands(ee.Image([dark_pixels, cld_proj, shadows]))
+#
+#     def apply_cld_shdw_mask(img):
+#         """
+#         apply the cloud & shadow mask
+#         :returns: img after application of cloud-shadow mask
+#         """
+#
+#         # Subset the cloudmask band and invert it so clouds/shadow are 0, else 1.
+#         not_cld_shdw = img.select('cloudshadowmask').Not()
+#
+#         # Subset reflectance bands and update their masks, return the result.
+#         return img.select('B.*').updateMask(not_cld_shdw)
+#
+#     def fill_cloud_gaps(img_orig, img_fill):
+#         """
+#         Where img_orig is masked (i.e. transparent null values) due to e.g. cloud masking,
+#         fill those gaps where possible using data from img_fill. any remaining gaps (i.e. cloudy in both images)
+#         are re-masked.
+#
+#         :param img_orig: Image, to be filled
+#         :param img_fill: Image, used for filling
+#         :returns: img_new, img_orig after gap filling and remasking
+#         """
+#         img_new = img_orig.unmask(-99999)  # masked locations
+#         fill_pixels = img_new.eq(-99999)  # binary mask with value = 1 where we want to fill
+#         img_new = img_new.where(fill_pixels, img_fill)  # fill img_new with img_fill where fill_pixels==1
+#         mask = img_new.neq(-99999)  # -99999 will remain where no valid pixels in img_fill (i.e. cloudy in both), so remask
+#         img_new = img_new.mask(mask)
+#         return img_new
+#
+#     # get individual variables from param dict
+#     CLOUD_FILTER = s2_params.get('CLOUD_FILTER')
+#     NIR_DRK_THRESH = s2_params.get('NIR_DRK_THRESH')
+#     CLD_PRJ_DIST = s2_params.get('CLD_PRJ_DIST')
+#     CLD_PRB_THRESH = s2_params.get('CLD_PRB_THRESH')
+#     BUFFER = s2_params.get('BUFFER')
+#     S2BANDS = s2_params.get('S2BANDS')
+#
+#     # iteratively fetch each month of Sentinel-2 imagery and generate a median composite for the AOI
+#     for i, date_tuple in enumerate(date_list):
+#         new_band_names = [f'S2_{x}_{date_tuple[0]}_{date_tuple[1]}' for x in S2BANDS]
+#         start_date = ee.Date(date_tuple[0])
+#         end_date = ee.Date(date_tuple[1])
+#
+#         # load and filter collection
+#         s2_sr_cld_col = get_s2_sr_cld_col(aoi, start_date, end_date)
+#         # do cloud processing, make composite & clip.
+#         s2cldless_median = (s2_sr_cld_col.map(add_cld_shdw_mask)
+#                             .map(apply_cld_shdw_mask)
+#                             .select(S2BANDS)
+#                             .median()
+#                             .clip(aoi.geometry()))
+#
+#         # try to cloud gap fill
+#         if dt.datetime.strptime(date_tuple[0], '%Y-%m-%d') > dt.datetime.strptime('2018-03-28', '%Y-%m-%d'):
+#             # load a collection from the same time in previous year for cloud gap filling
+#             s2_sr_cld_col_fill = get_s2_sr_cld_col(aoi, start_date.advance(-1, 'year'), end_date.advance(-1, 'year'))
+#             # do cloud processing, make composite & clip.
+#             s2cldless_median_fill = (s2_sr_cld_col_fill.map(add_cld_shdw_mask)
+#                                      .map(apply_cld_shdw_mask)
+#                                      .select(S2BANDS)
+#                                      .median()
+#                                      .clip(aoi.geometry()))
+#             # apply cloud gap filling
+#             s2cldless_median = fill_cloud_gaps(img_orig=s2cldless_median,
+#                                                img_fill=s2cldless_median_fill)
+#         else:
+#             print(f"fetch_sentinel2_v3(): Skipping cloud gap filling; no S2 data prior to 2017-03-28 available in GEE, "
+#                   f"cannot fill cloud gaps for {date_tuple[0]}-{date_tuple[1]} with previous year of data")
+#
+#         # rename bands
+#         s2cldless_median = s2cldless_median.rename(new_band_names)
+#
+#         # append to stack
+#         if i == 0:
+#             median_stack = s2cldless_median
+#         else:
+#             median_stack = median_stack.addBands(s2cldless_median)
+#     print('fetch_sentinel2_v3(): bye!')
+#     return median_stack
+#
+
+def fetch_sentinel1_v2(aoi, date_list):
+    """
+    fetch a datastack of Sentinel-1 composites.
+
+    :: NEW FOR V2 ::
+    * compositing period start and end dates need to be explicitly stated in 'date_list' (monthly composites no longer assumed).
+
+    :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent
+    :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each compositing period, expects 'YYYY-MM-DD' format
+    :return: ee.image.Image, stack of composite images
+    """
+    print('fetch_sentinel1_v2(): hello!')
+    S1BANDS = ['VV', 'VH']
+
+    # specify filters to apply to the GEE Sentinel-1 collection
+    filters = [ee.Filter.listContains("transmitterReceiverPolarisation", "VV"),
+               ee.Filter.listContains("transmitterReceiverPolarisation", "VH"),
+               ee.Filter.equals("instrumentMode", "IW"),
+               ee.Filter.geometry(aoi)]
+
+    # iteratively fetch each month of Sentinel-1 imagery and generate a median composite for the AOI
+    for i, date_tuple in enumerate(date_list):
+        new_band_names = [f'S1_{x}_{date_tuple[0]}_{date_tuple[1]}' for x in S1BANDS]
+        start_date = ee.Date(date_tuple[0])
+        end_date = ee.Date(date_tuple[1])
+
+        # load and filter collection
+        s1 = ee.ImageCollection('COPERNICUS/S1_GRD') \
+            .filterDate(start_date, end_date)
+        s1 = s1.filter(filters)
+
+        # make composite, clip and give sensible name
+        s1_median = (s1.select(S1BANDS)
+                     .median()
+                     .clip(aoi.geometry())
+                     .rename(new_band_names))
+
+        # append to stack
+        if i == 0:
+            median_stack = s1_median
+        else:
+            median_stack = median_stack.addBands(s1_median)
+    print('fetch_sentinel1_v2(): bye!')
+    return median_stack
+
+
+def fetch_sentinel2_v4(aoi, date_list, s2_params, fill_mask_bkwd=True, fill_mask_fwd=True):
     """
     fetch a datastack of Sentinel-2 composites, with cloud/shadow masking applied.
     most of the code to do this is derived from here:
@@ -234,12 +507,21 @@ def fetch_sentinel2_v3(aoi, date_list, s2_params):
     * attempts to fill cloud gaps with same time window of data from the previous year
       NOTE: this is not applied if the first date in date_list tuple is before April 2018 (no sentinel data on GEE prior to Apr 2017)
 
+    :: NEW FOR V4 ::
+    * Cloud masking approach changed to be less conservative with filling, and fix a bug. BUG FIX: checks to make sure
+      a fill image has bands (i.e. no missing data) before trying to gap fill. Additionally, now have the option to cloud gap fill
+      backwards and/or forwards in time. If both selected, first try to fill with prev year, then fill remaining gaps with next year.
+
+
     :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent
     :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each compositing period, expects 'YYYY-MM-DD' format
     :param s2_params: dict, contains parameters used for cloud & shadow masking
+    :param fill_mask_bkwd: bool, if true, attempts to fill cloud gaps using last year's data
+    :param fill_mask_fwd: bool, if true, attempts to fill cloud gaps using next year's data
     :return: ee.image.Image, stack of monthly composite images of bands specified in s2_params
     """
-    print('fetch_sentinel2_v3(): hello!')
+    print('fetch_sentinel2_v4(): hello!')
+
     def get_s2_sr_cld_col(aoi, start_date, end_date):
         """
         get & join the S2_SR and S2_CLOUD_PROBABILITY collections
@@ -389,7 +671,8 @@ def fetch_sentinel2_v3(aoi, date_list, s2_params):
         img_new = img_orig.unmask(-99999)  # masked locations
         fill_pixels = img_new.eq(-99999)  # binary mask with value = 1 where we want to fill
         img_new = img_new.where(fill_pixels, img_fill)  # fill img_new with img_fill where fill_pixels==1
-        mask = img_new.neq(-99999)  # -99999 will remain where no valid pixels in img_fill (i.e. cloudy in both), so remask
+        mask = img_new.neq(
+            -99999)  # -99999 will remain where no valid pixels in img_fill (i.e. cloudy in both), so remask
         img_new = img_new.mask(mask)
         return img_new
 
@@ -407,86 +690,60 @@ def fetch_sentinel2_v3(aoi, date_list, s2_params):
         start_date = ee.Date(date_tuple[0])
         end_date = ee.Date(date_tuple[1])
 
-        # load and filter collection
+        # load and process collection for current year
         s2_sr_cld_col = get_s2_sr_cld_col(aoi, start_date, end_date)
-        # do cloud processing, make composite & clip.
         s2cldless_median = (s2_sr_cld_col.map(add_cld_shdw_mask)
                             .map(apply_cld_shdw_mask)
                             .select(S2BANDS)
                             .median()
                             .clip(aoi.geometry()))
 
-        # try to cloud gap fill
-        if dt.datetime.strptime(date_tuple[0], '%Y-%m-%d') > dt.datetime.strptime('2018-03-28', '%Y-%m-%d'):
-            # load a collection from the same time in previous year for cloud gap filling
-            s2_sr_cld_col_fill = get_s2_sr_cld_col(aoi, start_date.advance(-1, 'year'), end_date.advance(-1, 'year'))
-            # do cloud processing, make composite & clip.
-            s2cldless_median_fill = (s2_sr_cld_col_fill.map(add_cld_shdw_mask)
-                                     .map(apply_cld_shdw_mask)
-                                     .select(S2BANDS)
-                                     .median()
-                                     .clip(aoi.geometry()))
-            # apply cloud gap filling
-            s2cldless_median = fill_cloud_gaps(img_orig=s2cldless_median,
-                                               img_fill=s2cldless_median_fill)
-        else:
-            print(f"fetch_sentinel2_v3(): Skipping cloud gap filling; no S2 data prior to 2017-03-28 available in GEE, "
-                  f"cannot fill cloud gaps for {date_tuple[0]}-{date_tuple[1]} with previous year of data")
+        # try to cloud gap fill backwards in time
+        if fill_mask_bkwd:
+            s2_sr_cld_col_fill_bkwd = get_s2_sr_cld_col(aoi, start_date.advance(-1, 'year'),
+                                                        end_date.advance(-1, 'year'))
+            s2cldless_median_fill_bkwd = (s2_sr_cld_col_fill_bkwd.map(add_cld_shdw_mask)
+                                          .map(apply_cld_shdw_mask)
+                                          .select(S2BANDS)
+                                          .median()
+                                          .clip(aoi.geometry()))
+            # sometimes S2 data used for bkwd filling is missing; in these cases, we cannot gap fill
+            band_test = len(s2cldless_median_fill_bkwd.bandNames().getInfo())
+            if band_test > 0:
+                print(
+                    f"fetch_sentinel2_v4(): apply backward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}...")
+                # if bands are present apply cloud gap filling
+                s2cldless_median = fill_cloud_gaps(img_orig=s2cldless_median,
+                                                   img_fill=s2cldless_median_fill_bkwd)
+            else:
+                print(
+                    f"fetch_sentinel2_v4(): Skipping backward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}; missing S2 data one year earlier")
+
+        # try to cloud gap fill forwards in time
+        if fill_mask_fwd:
+            s2_sr_cld_col_fill_fwd = get_s2_sr_cld_col(aoi, start_date.advance(1, 'year'), end_date.advance(1, 'year'))
+            s2cldless_median_fill_fwd = (s2_sr_cld_col_fill_fwd.map(add_cld_shdw_mask)
+                                         .map(apply_cld_shdw_mask)
+                                         .select(S2BANDS)
+                                         .median()
+                                         .clip(aoi.geometry()))
+            # sometimes S2 data used for fwd filling is missing; in these cases, we cannot gap fill
+            band_test = len(s2cldless_median_fill_fwd.bandNames().getInfo())
+            if band_test > 0:
+                print(f"fetch_sentinel2_v4(): apply forward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}...")
+                # if bands are present apply cloud gap filling
+                s2cldless_median = fill_cloud_gaps(img_orig=s2cldless_median,
+                                                   img_fill=s2cldless_median_fill_fwd)
+            else:
+                print(
+                    f"fetch_sentinel2_v4(): Skipping forward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}; missing S2 data one year later")
 
         # rename bands
         s2cldless_median = s2cldless_median.rename(new_band_names)
-
         # append to stack
         if i == 0:
             median_stack = s2cldless_median
         else:
             median_stack = median_stack.addBands(s2cldless_median)
-    print('fetch_sentinel2_v3(): bye!')
+    print('fetch_sentinel2_v4(): bye!')
     return median_stack
-
-
-def fetch_sentinel1_v2(aoi, date_list):
-    """
-    fetch a datastack of Sentinel-1 composites.
-
-    :: NEW FOR V2 ::
-    * compositing period start and end dates need to be explicitly stated in 'date_list' (monthly composites no longer assumed).
-
-    :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent
-    :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each compositing period, expects 'YYYY-MM-DD' format
-    :return: ee.image.Image, stack of composite images
-    """
-    print('fetch_sentinel1_v2(): hello!')
-    S1BANDS = ['VV', 'VH']
-
-    # specify filters to apply to the GEE Sentinel-1 collection
-    filters = [ee.Filter.listContains("transmitterReceiverPolarisation", "VV"),
-               ee.Filter.listContains("transmitterReceiverPolarisation", "VH"),
-               ee.Filter.equals("instrumentMode", "IW"),
-               ee.Filter.geometry(aoi)]
-
-    # iteratively fetch each month of Sentinel-1 imagery and generate a median composite for the AOI
-    for i, date_tuple in enumerate(date_list):
-        new_band_names = [f'S1_{x}_{date_tuple[0]}_{date_tuple[1]}' for x in S1BANDS]
-        start_date = ee.Date(date_tuple[0])
-        end_date = ee.Date(date_tuple[1])
-
-        # load and filter collection
-        s1 = ee.ImageCollection('COPERNICUS/S1_GRD') \
-            .filterDate(start_date, end_date)
-        s1 = s1.filter(filters)
-
-        # make composite, clip and give sensible name
-        s1_median = (s1.select(S1BANDS)
-                     .median()
-                     .clip(aoi.geometry())
-                     .rename(new_band_names))
-
-        # append to stack
-        if i == 0:
-            median_stack = s1_median
-        else:
-            median_stack = median_stack.addBands(s1_median)
-    print('fetch_sentinel1_v2(): bye!')
-    return median_stack
-
