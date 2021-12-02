@@ -4,4 +4,6 @@ We use Google Earth Engine to carry out annual automated mapping of landcover in
 
 Install of GeeMap and GeoPandas important information: https://geemap.org/installation/
 
+Please note this is currently being tested as a beta version. 
+
 User guide and readme available soon...
