@@ -62,6 +62,13 @@ def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_compl
     except Exception as e:
         print('Failed to clear tile directory (try doing it manually) with error:')
         print(e)
+
+    for i in process_list:
+        try:
+            shutil.rmtree(i)
+        except Exception as e:
+            print('Failed to clear tile directory ' + i + '( try doing it manually) with error:')
+            print(e)
     print('map_target_area(): bye!')
 
 
@@ -71,8 +78,9 @@ def yearly_classifier_function(year, k, process_num, scale,
     year = str(year)
     tile_num = k.split('.')[0].split('/')[-1]
     export_name = 'PArea' + process_num + '_tile' + tile_num + '_RF_' + year + '_' + run_type
+    check_name = export_name + '.tif'
 
-    if not os.path.exists(export_name):
+    if not os.path.exists(fp_export_dir+check_name):
         aoi = geemap.shp_to_ee(k)
         date_list = [(year + '-03-01', year + '-03-30'),
                      (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
