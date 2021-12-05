@@ -67,7 +67,7 @@ def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_compl
         try:
             shutil.rmtree(i)
         except Exception as e:
-            print('Failed to clear tile directory ' + i + ' ( try doing it manually) with error:')
+            print('Failed to clear tile directory ' + i + ' (try doing it manually) with error:')
             print(e)
     print('map_target_area(): bye!')
 
