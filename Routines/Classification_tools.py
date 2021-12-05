@@ -28,7 +28,7 @@ def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_compl
     process_list = get_list_of_files(process_dir, ".shp")
 
     # Tile processing areas to allow GEE extraction
-    tile_size = 0.1
+    tile_size = 0.15
     for i in process_list:
         print('map_target_area(): Generating tiles for processing area', str(i) + '...')
         process_num = i.split('.')[0].split('/')[-1]
@@ -67,18 +67,22 @@ def yearly_classifier_function(year, k, process_num, scale,
                                fp_export_dir, clf, run_type, max_min_values):
     print('yearly_classifier_function(): hello!')
     year = str(year)
-    tile_num = k.split('.')[-2][-1]
-    aoi = geemap.shp_to_ee(k)
-    date_list = [(year + '-03-01', year + '-03-30'),
-                 (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
-                 (year + '-06-01', year + '-06-30'), (year + '-07-01', year + '-07-30'),
-                 (year + '-10-01', year + '-10-30')]
-
-    tile_stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, max_min_values)
-    training_bands = tile_stack.bandNames().getInfo()
-
+    tile_num = k.split('.')[0].split('/')[-1]
     export_name = 'PArea' + process_num + '_tile' + tile_num + '_RF_' + year + '_' + run_type
-    apply_random_forest(export_name, training_bands, k, tile_stack, scale, fp_export_dir, clf)
+
+    if not os.path.exists(export_name):
+        aoi = geemap.shp_to_ee(k)
+        date_list = [(year + '-03-01', year + '-03-30'),
+                     (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
+                     (year + '-06-01', year + '-06-30'), (year + '-07-01', year + '-07-30'),
+                     (year + '-10-01', year + '-10-30')]
+
+        tile_stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, max_min_values)
+        training_bands = tile_stack.bandNames().getInfo()
+
+        apply_random_forest(export_name, training_bands, k, tile_stack, scale, fp_export_dir, clf)
+    else:
+        pass
     print('yearly_classifier_function(): bye!')
 
 
