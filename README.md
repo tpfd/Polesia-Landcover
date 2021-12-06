@@ -71,7 +71,7 @@ Other options and further work that you may wish to consider are:
 Thanks to Dmitri Grummo and Valery Dombrovski of the National academy of Sciences (Belarus), and Iurii Strus of the Frankfurt Zoological Society. Their data, input and local knowledge has been invaluable in the preparation of ground data and the general approach to mapping. Thanks also to Adham Ashton-Butt (British Trust for Ornithology) for co-ordinating the work, providing data and constant feedback as to what a useful end-product needs. Sentinel 1 and 2 data is provided by the European Space Agency, with processing carried out on the Google Earth Engine platform. Finally, thanks to the Frankfurt Zoological Society and the Endangered Landscapes Programme for funding this work.
 
 ## References
-Aldhshan, S.R., Mohammed, O.Z. and Shafri, H.M., 2019, November. Flash flood area mapping using sentinel-1 SAR data: a case study of eight upazilas in Sunamganj district, Bangladesh. In IOP Conference Series: Earth and Environmental Science, Vol. 357, No. 1, p. 012034. IOP Publishing.
+Aldhshan, S.R., Mohammed, O.Z. and Shafri, H.M., (2019), November. Flash flood area mapping using sentinel-1 SAR data: a case study of eight upazilas in Sunamganj district, Bangladesh. In IOP Conference Series: Earth and Environmental Science, Vol. 357, No. 1, p. 012034. IOP Publishing.
 
 Cuizhen W. and Jiaguo Q. (2005) Assessment of tropical forest degradation with canopy fractional cover from landsat ETM+ and IKONOS imagery, Earth Interactions, vol. 9, no. 22, pp.1-17.
 
