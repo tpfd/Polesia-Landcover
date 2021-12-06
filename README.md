@@ -60,11 +60,11 @@ With all of the above settings and shapefiles in place, run “Optimization_MAIN
 
 Advanced users may wish to run their own optimization experiments, to do so use the script provided and set the various paths in the same manner as described for the main classification script. You will need to have run the training data class balancing script in order for the optimization of training data class sizes to function (or have all the class size shape files already available).
 
-An advanced user may also wish to use the full accuracy assessment function. This can be easily implemented by switching in the relevant function name in the main classification script. The full assessment can be used to examine each class's performance and generates a range of the typical accuracy metrics in which you may be interested. This is particularly useful when considering which classes can be merged and separated. The advanced function is how the decisions in Appendix 1 were made.
+An advanced user may also wish to use the full accuracy assessment function. This can be easily implemented by switching in the relevant function name in the main classification script. The full assessment can be used to examine each class's performance and generates a range of the typical accuracy metrics in which you may be interested. This is particularly useful when considering which classes can be merged and separated.
 
 Other options and further work that you may wish to consider are:
 
-● Increasing the number of years used in the Sentinel 1 flood analysis, this is current set to current year and year – 1. More years may provide interesting results and generate a flood layer that is of use in further downstream work. [Satellite_data_handling.py, line 44)
+● Increasing the number of years used in the Sentinel 1 flood analysis, this is currently set to current year and year – 1. More years may provide interesting results and generate a flood layer that is of use in further downstream work. [Satellite_data_handling.py, line 44)
 
 ● Trying out different vegetation indices to those provided here. We selected two that provide the required performance stability with band reduction, but there are likely others that could do a better job with sufficient experimentation.
 
