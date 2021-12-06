@@ -60,7 +60,7 @@ With all of the above settings and shapefiles in place, run “Optimization_MAIN
 
 Advanced users may wish to run their own optimization experiments, to do so use the script provided and set the various paths in the same manner as described for the main classification script. You will need to have run the training data class balancing script in order for the optimization of training data class sizes to function (or have all the class size shape files already available).
 
-An advanced user may also wish to use the full accuracy assessment function. This can be easily implemented by switching in the relevant function name in the main classification script. The full assessment can be used to examine each class's performance and generates a range of the typical accuracy metrics in which you may be interested. This is particularly useful when considering which classes can be merged and separated and the advanced function is how the decisions in Appendix 1 were made.
+An advanced user may also wish to use the full accuracy assessment function. This can be easily implemented by switching in the relevant function name in the main classification script. The full assessment can be used to examine each class's performance and generates a range of the typical accuracy metrics in which you may be interested. This is particularly useful when considering which classes can be merged and separated. The advanced function is how the decisions in Appendix 1 were made.
 
 Other options and further work that you may wish to consider are:
 
@@ -84,6 +84,3 @@ Cuizhen W. and Jiaguo Q. (2005) Assessment of tropical forest degradation with c
 Gorelick, N., Hancher, M., Dixon, M., Ilyushchenko, S., Thau, D., & Moore, R. (2017). Google Earth Engine: Planetary-scale geospatial analysis for everyone. Remote Sensing of Environment.
 
 Liu H. Q. & Huete A. (1995) Feedback based modification of the NDVI to minimize canopy background and atmospheric noise, IEEE Transactions on Geoscience and Remote Sensing, vol. 33, no. 2, pp. 457–465, 1995.
-
-
-
