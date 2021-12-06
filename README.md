@@ -14,6 +14,10 @@ The code is written in Python 3.9, with the following libraries required in addi
 - ee (Google Earth Engine)
 - Shapely
 
+Cite this code:
+
+[![DOI](https://zenodo.org/badge/391597735.svg)](https://zenodo.org/badge/latestdoi/391597735)
+
 ## Overview of methods
 The landcover data used in this work was provided by Dmitri Grummo and Valery Dombrovski from the National academy of Sciences, Belarus. The raw training data consisted of 30,410 polygons over the Pripyat Polesie region, divided into 77 classes. In addition to this original data, further mapping and class interpretation assistance was contributed by Iurii Strus of the Frankfurt Zoological Society. These data were transformed into a set of ‘Simple’ and ‘Complex’ classes that are possible to detect from orbit, using free data in a workflow that does not incur cloud computation costs.
 
