@@ -13,7 +13,7 @@ import shutil
 sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
 from Utilities import table_writer, get_max_acc, match_result_lengths, get_list_of_files, line_plot
 from Training_data_handling import load_sample_training_data
-from Satellite_data_handling import create_data_stack_v2
+from Satellite_data_handling import create_data_stack
 from Processing_tools import tile_polygon
 
 ee.Initialize()
@@ -87,7 +87,7 @@ def yearly_classifier_function(year, k, process_num, scale,
                      (year + '-06-01', year + '-06-30'), (year + '-07-01', year + '-07-30'),
                      (year + '-10-01', year + '-10-30')]
 
-        tile_stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, max_min_values)
+        tile_stack, max_min_values_output = create_data_stack(aoi, date_list, year, max_min_values)
         training_bands = tile_stack.bandNames().getInfo()
 
         apply_random_forest(export_name, training_bands, k, tile_stack, scale, fp_export_dir, clf)
@@ -103,7 +103,7 @@ def RF_model_and_train(year, scale, label, aoi, fp_train_points, trees):
                  (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
                  (year + '-06-01', year + '-06-30'), (year + '-07-01', year + '-07-30'),
                  (year + '-10-01', year + '-10-30')]
-    stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, None)
+    stack, max_min_values_output = create_data_stack(aoi, date_list, year, None)
     band_names = stack.bandNames()
     trainingbands = band_names.getInfo()
 
@@ -206,7 +206,7 @@ def training_data_size_optimize(root_train_fpath, aoi, training_type, label, yea
                  (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
                  (year + '-06-01', year + '-06-30'), (year + '-07-01', year + '-07-30'),
                  (year + '-10-01', year + '-10-30')]
-    stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, None)
+    stack, max_min_values_output = create_data_stack(aoi, date_list, year, None)
     band_names = stack.bandNames()
     trainingbands = band_names.getInfo()
 
@@ -244,7 +244,7 @@ def trees_size_optimize(fp_train_points, aoi, training_type, label, plots_out_di
                  (year + '-04-01', year + '-04-30'), (year + '-05-01', year + '-05-31'),
                  (year + '-06-01', year + '-06-30'), (year + '-07-01', year + '-07-30'),
                  (year + '-10-01', year + '-10-30')]
-    stack, max_min_values_output = create_data_stack_v2(aoi, date_list, year, None)
+    stack, max_min_values_output = create_data_stack(aoi, date_list, year, None)
     band_names = stack.bandNames()
     trainingbands = band_names.getInfo()
 

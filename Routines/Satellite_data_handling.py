@@ -8,7 +8,7 @@ import pandas as pd
 ee.Initialize()
 
 
-def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
+def create_data_stack(aoi, date_list, year, max_min_values=None):
     """
     Convenience function to compile and min-max scale all distinct dataset sub-stacks:
     * Sentinel 1 flood frequency index
@@ -17,10 +17,6 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
     * ** NO LONGER USED ** topography data bands: slope, aspect & elevation [static, 30m SRTM derived]
     Also generates EVI & AVI indices from S2
 
-    :: NEW FOR V2 ::
-    * compositing period for S1 & S2 need start and end dates explicitly stated in 'date_list' (monthly composites no
-    longer assumed).
-
     :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent
     :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each
     compositing period, expects 'YYYY-MM-DD' format
@@ -28,9 +24,8 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
     : max_min_values:, None (default) or tuple of max/min dicts. if None, computes min max values for each band for the
     training region. otherwise, computes max/min values
     :return: ee.image.Image, tuple of max min value dictionaries (max_dict, min_dict)
-
     """
-    print('create_data_stack_v2(): hello!')
+    print('create_data_stack(): hello!')
 
     # parameters used for sentinel-2 imagery analysis
     s2_params = {
@@ -43,32 +38,35 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
         'S2BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B11', 'B12']  # list of str, which S2 bands to return?
     }
 
-    print('create_data_stack_v2(): Getting satellite data...')
-    #s1_stack = fetch_sentinel1_v2(aoi, date_list)
-    s2_stack = fetch_sentinel2_v4(aoi, date_list, s2_params, fill_mask_bkwd=True, fill_mask_fwd=True)
-    flood_index = fetch_sentinel1_flood_index_v1(aoi,
-                                                 str((int(year)-1))+'-01-01',
-                                                 year+'-12-01',
-                                                 smoothing_radius=100.0,
-                                                 flood_thresh=-13.0)
-    #combined_stack = s1_stack.addBands(s2_stack)
+    print('create_data_stack(): Getting satellite data...')
+    #s1_stack = fetch_sentinel1(aoi, date_list)
+    s2_stack = fetch_sentinel2(aoi, date_list, s2_params, fill_mask_bkwd=True, fill_mask_fwd=True)
+    flood_index = fetch_sentinel1_flood_index(aoi, str((int(year)-1))+'-01-01',
+                                                   year+'-12-01',
+                                                   smoothing_radius=100.0,
+                                                   flood_thresh=-13.0)
+    # topo_stack = fetch_topography(aoi)  # not neccesary for Polesia region
+
+    # stack all the datasets from various data sources
+    # combined_stack = s1_stack.addBands(s2_stack)  # not neccesary for Polesia region
+    # combined_stack = combined_stack.addBands(topo_stack)  # not neccesary for Polesia region
     combined_stack = s2_stack.addBands(flood_index)
 
     # Calculate indices on raw data
-    print('create_data_stack_v2(): Calculating indices...')
+    print('create_data_stack(): Calculating indices...')
     combined_stack = compute_indices(combined_stack, date_list)
 
     if not max_min_values:
         # Normalise to between 0 and 1 using min-max.
-        print('create_data_stack_v2(): Calculating min-max values for each band...')
+        print('create_data_stack(): Calculating min-max values for each band...')
         max_dict, min_dict = get_min_max(combined_stack)
     else:
         # use previously calculated values
-        print('create_data_stack_v2(): using precalculated min-max values for each band...')
+        print('create_data_stack(): using precalculated min-max values for each band...')
         max_dict = max_min_values[0]
         min_dict = max_min_values[1]
 
-    print('create_data_stack_v2(): Normalising all bands with min-max...')
+    print('create_data_stack(): Normalising all bands with min-max...')
     counter = 0
     band_names = combined_stack.bandNames().getInfo()
 
@@ -79,8 +77,8 @@ def create_data_stack_v2(aoi, date_list, year, max_min_values=None):
             normed_combined_stack = norm_band
         else:
             normed_combined_stack = normed_combined_stack.addBands(norm_band)
-    print('create_data_stack_v2(): Normalisation complete!')
-    print('create_data_stack_v2(): bye!')
+    print('create_data_stack(): Normalisation complete!')
+    print('create_data_stack(): bye!')
     return normed_combined_stack, (max_dict, min_dict)
 
 
@@ -148,7 +146,7 @@ def compute_indices(combined_stack, date_list):
     return combined_stack
 
 
-def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_radius=100.0, flood_thresh=-13.0):
+def fetch_sentinel1_flood_index(aoi, start_date_str, end_date_str, smoothing_radius=100.0, flood_thresh=-13.0):
     """
     Create a simple flood frequency layer from Sentinel-1 data (IW mode & VV)
     1) preprocess median non-winter (Mar-Oct) monthly composites using start/end dates
@@ -168,7 +166,7 @@ def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_
     : param flood_thresh: float, VV values < flood_thresh are considered flooded.
     : returns : flood frequency map [0-1]
     """
-    print('fetch_sentinel1_flood_index_v1(): hello!')
+    print('fetch_sentinel1_flood_index(): hello!')
 
     def s1_mask_border_noise(img):
         """
@@ -222,84 +220,27 @@ def fetch_sentinel1_flood_index_v1(aoi, start_date_str, end_date_str, smoothing_
 
     # Standardise & rename
     flood_aggr = flood_aggr.divide(n_months).rename("s1_floodfreq")
-    print('fetch_sentinel1_flood_index_v1(): bye!')
+    print('fetch_sentinel1_flood_index(): bye!')
     return flood_aggr
 
 
-def fetch_sentinel1_v2(aoi, date_list):
-    """
-    fetch a datastack of Sentinel-1 composites.
-
-    :: NEW FOR V2 ::
-    * compositing period start and end dates need to be explicitly stated in 'date_list' (monthly composites no longer assumed).
-
-    :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent
-    :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each compositing period, expects 'YYYY-MM-DD' format
-    :return: ee.image.Image, stack of composite images
-    """
-    print('fetch_sentinel1_v2(): hello!')
-    S1BANDS = ['VV', 'VH']
-
-    # specify filters to apply to the GEE Sentinel-1 collection
-    filters = [ee.Filter.listContains("transmitterReceiverPolarisation", "VV"),
-               ee.Filter.listContains("transmitterReceiverPolarisation", "VH"),
-               ee.Filter.equals("instrumentMode", "IW"),
-               ee.Filter.geometry(aoi)]
-
-    # iteratively fetch each month of Sentinel-1 imagery and generate a median composite for the AOI
-    for i, date_tuple in enumerate(date_list):
-        new_band_names = [f'S1_{x}_{date_tuple[0]}_{date_tuple[1]}' for x in S1BANDS]
-        start_date = ee.Date(date_tuple[0])
-        end_date = ee.Date(date_tuple[1])
-
-        # load and filter collection
-        s1 = ee.ImageCollection('COPERNICUS/S1_GRD') \
-            .filterDate(start_date, end_date)
-        s1 = s1.filter(filters)
-
-        # make composite, clip and give sensible name
-        s1_median = (s1.select(S1BANDS)
-                     .median()
-                     .clip(aoi.geometry())
-                     .rename(new_band_names))
-
-        # append to stack
-        if i == 0:
-            median_stack = s1_median
-        else:
-            median_stack = median_stack.addBands(s1_median)
-    print('fetch_sentinel1_v2(): bye!')
-    return median_stack
-
-
-def fetch_sentinel2_v4(aoi, date_list, s2_params, fill_mask_bkwd=True, fill_mask_fwd=True):
+def fetch_sentinel2(aoi, date_list, s2_params, fill_mask_bkwd=True, fill_mask_fwd=True):
     """
     fetch a datastack of Sentinel-2 composites, with cloud/shadow masking applied.
     most of the code to do this is derived from here:
     https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless
-
-    :: NEW FOR V2 ::
-    * compositing period start and end dates need to be explicitly stated in 'date_list' (monthly composites no longer assumed).
-    * bands returned are now defined by 's2_params', rather than hard coded.
-
-    :: NEW FOR V3 ::
-    * attempts to fill cloud gaps with same time window of data from the previous year
-      NOTE: this is not applied if the first date in date_list tuple is before April 2018 (no sentinel data on GEE prior to Apr 2017)
-
-    :: NEW FOR V4 ::
-    * Cloud masking approach changed to be less conservative with filling, and fix a bug. BUG FIX: checks to make sure
-      a fill image has bands (i.e. no missing data) before trying to gap fill. Additionally, now have the option to cloud gap fill
-      backwards and/or forwards in time. If both selected, first try to fill with prev year, then fill remaining gaps with next year.
-
+    Cloud masking filling attempts to fill with data from the month in the previous year, then any remaining gaps from
+    the following year.
 
     :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent
-    :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each compositing period, expects 'YYYY-MM-DD' format
+    :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each
+                      compositing period, expects 'YYYY-MM-DD' format
     :param s2_params: dict, contains parameters used for cloud & shadow masking
     :param fill_mask_bkwd: bool, if true, attempts to fill cloud gaps using last year's data
     :param fill_mask_fwd: bool, if true, attempts to fill cloud gaps using next year's data
     :return: ee.image.Image, stack of monthly composite images of bands specified in s2_params
     """
-    print('fetch_sentinel2_v4(): hello!')
+    print('fetch_sentinel2: hello!')
 
     def get_s2_sr_cld_col(aoi, start_date, end_date):
         """
@@ -481,13 +422,13 @@ def fetch_sentinel2_v4(aoi, date_list, s2_params, fill_mask_bkwd=True, fill_mask
             band_test = len(s2cldless_median_fill_bkwd.bandNames().getInfo())
             if band_test > 0:
                 print(
-                    f"fetch_sentinel2_v4(): apply backward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}...")
+                    f"fetch_sentinel2(): apply backward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}...")
                 # if bands are present apply cloud gap filling
                 s2cldless_median = fill_cloud_gaps(img_orig=s2cldless_median,
                                                    img_fill=s2cldless_median_fill_bkwd)
             else:
                 print(
-                    f"fetch_sentinel2_v4(): Skipping backward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}; missing S2 data one year earlier")
+                    f"fetch_sentinel2(): Skipping backward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}; missing S2 data one year earlier")
 
         # try to cloud gap fill forwards in time
         if fill_mask_fwd:
@@ -500,13 +441,13 @@ def fetch_sentinel2_v4(aoi, date_list, s2_params, fill_mask_bkwd=True, fill_mask
             # sometimes S2 data used for fwd filling is missing; in these cases, we cannot gap fill
             band_test = len(s2cldless_median_fill_fwd.bandNames().getInfo())
             if band_test > 0:
-                print(f"fetch_sentinel2_v4(): apply forward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}...")
+                print(f"fetch_sentinel2(): apply forward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}...")
                 # if bands are present apply cloud gap filling
                 s2cldless_median = fill_cloud_gaps(img_orig=s2cldless_median,
                                                    img_fill=s2cldless_median_fill_fwd)
             else:
                 print(
-                    f"fetch_sentinel2_v4(): Skipping forward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}; missing S2 data one year later")
+                    f"fetch_sentinel2(): Skipping forward cloud gap filling for {date_tuple[0]} - {date_tuple[1]}; missing S2 data one year later")
 
         # rename bands
         s2cldless_median = s2cldless_median.rename(new_band_names)
@@ -515,5 +456,83 @@ def fetch_sentinel2_v4(aoi, date_list, s2_params, fill_mask_bkwd=True, fill_mask
             median_stack = s2cldless_median
         else:
             median_stack = median_stack.addBands(s2cldless_median)
-    print('fetch_sentinel2_v4(): bye!')
+    print('fetch_sentinel2(): bye!')
     return median_stack
+
+
+def fetch_sentinel1(aoi, date_list):
+    """
+
+    ** NOT CURRENTLY IN USE! **
+
+    fetch a datastack of Sentinel-1 composites.
+
+    :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent
+    :param date_list: list of tuples of strings (i.e. [('a','b'),('c','d')]), used to define start & end of each compositing period, expects 'YYYY-MM-DD' format
+    :return: ee.image.Image, stack of composite images
+    """
+    print('fetch_sentinel1(): hello!')
+    S1BANDS = ['VV', 'VH']
+
+    # specify filters to apply to the GEE Sentinel-1 collection
+    filters = [ee.Filter.listContains("transmitterReceiverPolarisation", "VV"),
+               ee.Filter.listContains("transmitterReceiverPolarisation", "VH"),
+               ee.Filter.equals("instrumentMode", "IW"),
+               ee.Filter.geometry(aoi)]
+
+    # iteratively fetch each month of Sentinel-1 imagery and generate a median composite for the AOI
+    for i, date_tuple in enumerate(date_list):
+        new_band_names = [f'S1_{x}_{date_tuple[0]}_{date_tuple[1]}' for x in S1BANDS]
+        start_date = ee.Date(date_tuple[0])
+        end_date = ee.Date(date_tuple[1])
+
+        # load and filter collection
+        s1 = ee.ImageCollection('COPERNICUS/S1_GRD') \
+            .filterDate(start_date, end_date)
+        s1 = s1.filter(filters)
+
+        # make composite, clip and give sensible name
+        s1_median = (s1.select(S1BANDS)
+                     .median()
+                     .clip(aoi.geometry())
+                     .rename(new_band_names))
+
+        # append to stack
+        if i == 0:
+            median_stack = s1_median
+        else:
+            median_stack = median_stack.addBands(s1_median)
+    print('fetch_sentinel1(): bye!')
+    return median_stack
+
+
+def fetch_topography(aoi):
+    """
+
+    ** NOT CURRENTLY IN USE **
+
+    Get static topographic layers
+    elevation, slope and aspect from the NASA SRTM product 30m ('USGS/SRTMGL1_003').
+    Also gets 'Global SRTM Topographic Diversity' ('CSP/ERGo/1_0/Global/SRTM_topoDiversity'),
+    but I'm not convinced this is useful - 270m, looks a lot like coarse res slope/elevation
+
+    :param aoi: ee.featurecollection.FeatureCollection, used to indicate AOI extent
+    :return: ee.image.Image, stack of composite images with bands: ['elevation', 'aspect', 'slope', 'topographic_diversity']
+    """
+    print('fetch_topography(): hi!')
+    # datasets & bands
+    srtm = ee.Image('USGS/SRTMGL1_003')
+    ds_topodiv = ee.Image('CSP/ERGo/1_0/Global/SRTM_topoDiversity')
+    elevation = srtm.select('elevation').clip(aoi.geometry())
+    topodiversity = ds_topodiv.select('constant').clip(aoi.geometry()).rename('topographic_diversity')
+
+    # derive slope & aspect
+    slope = ee.Terrain.slope(elevation)
+    aspect = ee.Terrain.aspect(elevation)
+
+    # compile
+    # stack = elevation.addBands(slope)
+    stack = slope.addBands(aspect)
+    # stack = stack.addBands(topodiversity)
+    print('fetch_topography(): bye!')
+    return stack
