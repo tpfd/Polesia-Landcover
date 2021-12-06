@@ -57,7 +57,9 @@ Within “Classifcation_MAIN.py” there are the following toggles and paths to 
 ![image](https://user-images.githubusercontent.com/19290575/144901724-20f534c2-b8eb-46fb-b6b0-03110f8cce88.png)
 
 With all of the above settings and shapefiles in place, run “Optimization_MAIN.py” in order to start mapping. The script will first generate the data-stack and classification models, it will then carry out an accuracy assessment if so specified, before then tiling the specified mapping region and carrying out a classification of that region for the years desired. It will do all of this automatically with no user input. You just need to make sure that your internet connection remains up and that you have enough space to store the downloaded mapped tiles. There is no need to have the accuracy assessment toggled on if you are already happy with the classification model set-up.
+
 Advanced users may wish to run their own optimization experiments, to do so use the script provided and set the various paths in the same manner as described for the main classification script. You will need to have run the training data class balancing script in order for the optimization of training data class sizes to function (or have all the class size shape files already available).
+
 An advanced user may also wish to use the full accuracy assessment function. This can be easily implemented by switching in the relevant function name in the main classification script. The full assessment can be used to examine each class's performance and generates a range of the typical accuracy metrics in which you may be interested. This is particularly useful when considering which classes can be merged and separated and the advanced function is how the decisions in Appendix 1 were made.
 
 Other options and further work that you may wish to consider are:
