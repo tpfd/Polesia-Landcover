@@ -43,8 +43,6 @@ if not os.path.isdir(fp_export_dir):
     os.mkdir(fp_export_dir)
 
 # Set up the classifiers
-## TODO: data stack is generated twice due to 2 calls to RF_model_and_train().
-## TODO: Revise to just call create_data_stack_v2() once from main before building any models
 print('\nClassification_MAIN_v2(): start complex model construction')
 clf_complex, test_complex, max_min_values_complex = RF_model_and_train(training_year, scale, label, aoi,
                                                                        complex_training_fpath,
