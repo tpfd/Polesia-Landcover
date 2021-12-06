@@ -3,7 +3,6 @@ This script contains the functions related to handling, moving, stacking and dea
 the satellite data.
 """
 import ee
-import datetime as dt
 import pandas as pd
 ee.Initialize()
 

@@ -42,8 +42,8 @@ def load_presets(fp_settings_txt):
     training_complex = preset_table['Value']['training_complex']
     trees_simple = preset_table['Value']['trees_simple']
     training_simple = preset_table['Value']['training_simple']
-    return fp_train_simple_points, fp_train_complex_points,\
-           trees_complex, training_complex, trees_simple, training_simple
+    return fp_train_simple_points, fp_train_complex_points, trees_complex, training_complex, trees_simple, \
+           training_simple
 
 
 def generate_empty_preset_table():
