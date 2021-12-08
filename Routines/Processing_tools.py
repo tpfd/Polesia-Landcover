@@ -24,9 +24,9 @@ def tile_polygon(fpath_poly, tile_size, fp_export_dir, type_dir):
     name = full_name.split('.')[0]
     filetype = fpath_poly.split('.')[1]
     gjsondir = os.path.dirname(fpath_poly) + '/'
-    if filetype == 'shp':
-        shp_file = geopandas.read_file(fpath_poly)
-        shp_file.to_file(gjsondir + name+'.geojson', driver='GeoJSON')
+
+    shp_file = geopandas.read_file(fpath_poly)
+    shp_file.to_file(gjsondir + name+'.geojson', driver='GeoJSON')
 
     # Generate tiles
     GeoDF = geopandas.read_file(gjsondir + name+'.geojson')
