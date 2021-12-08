@@ -1,5 +1,7 @@
 # Polesia-Landcover
 
+[![DOI](https://zenodo.org/badge/391597735.svg)](https://zenodo.org/badge/latestdoi/391597735)
+
 We use Google Earth Engine to carry out annual automated mapping of landcover in Polesia. This is achieved with an optimised Random Forest algorithm that is applied over a set of ‘complex’ and ‘simple’ classes that draw their classification characteristics from a customised annualised satellite data stack. The complex classes split out forest types and swamps into a finer degree as possible. The simple classes bin these finer ecological gradations into coniferous forests, deciduous forests, and swamps. We use a mixture of Sentinel 1 and 2 bands, some of which are turned into indices in order to reduce input bands
 
 Install Google Earth Engine Python API: https://developers.google.com/earth-engine/guides/python_install-conda
@@ -16,9 +18,7 @@ The code is written in Python 3.9, with the following libraries required in addi
 - ee (Google Earth Engine)
 - Shapely
 
-Cite this code:
-
-[![DOI](https://zenodo.org/badge/391597735.svg)](https://zenodo.org/badge/latestdoi/391597735)
+See the .yml file for a full list of all libraries and dependencies.
 
 ## Overview of methods
 The landcover data used in this work was provided by Dmitri Grummo and Valery Dombrovski from the National academy of Sciences, Belarus. The raw training data consisted of 30,410 polygons over the Pripyat Polesie region, divided into 77 classes. In addition to this original data, further mapping and class interpretation assistance was contributed by Iurii Strus of the Frankfurt Zoological Society. These data were transformed into a set of ‘Simple’ and ‘Complex’ classes that are possible to detect from orbit, using free data in a workflow that does not incur cloud computation costs.
