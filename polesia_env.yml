@@ -350,4 +350,4 @@ dependencies:
     - whiteboxgui==0.3.0
     - widgetsnbextension==3.5.1
     - xlrd==2.0.1
-prefix: C:\Users\tpfdo\miniconda3
+prefix:
