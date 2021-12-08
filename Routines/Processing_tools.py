@@ -23,12 +23,13 @@ def tile_polygon(fpath_poly, tile_size, fp_export_dir, type_dir):
     full_name = fpath_poly.split('/')[-1]
     name = full_name.split('.')[0]
     filetype = fpath_poly.split('.')[1]
+    gjsondir = os.path.dirname(fpath_poly) + '/'
     if filetype == 'shp':
         shp_file = geopandas.read_file(fpath_poly)
-        shp_file.to_file(name+'.geojson', driver='GeoJSON')
+        shp_file.to_file(gjsondir + name+'.geojson', driver='GeoJSON')
 
     # Generate tiles
-    GeoDF = geopandas.read_file(name+'.geojson')
+    GeoDF = geopandas.read_file(gjsondir + name+'.geojson')
     G = np.random.choice(GeoDF.geometry.values)
     squares = split_polygon(G, shape='square', thresh=0.5, side_length=tile_size)
     counter = 0
@@ -142,7 +143,3 @@ def split_polygon(G, side_length=0.025, shape="square", thresh=0.9):
     elif shape == "square":
         geoms = [g for g in Geoms if ((g.intersection(G)).area / g.area) >= thresh]
     return geoms
-
-
-
-
