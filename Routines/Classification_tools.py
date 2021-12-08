@@ -116,7 +116,7 @@ def yearly_classifier_function(year, k, process_num, scale,
     """
     print('yearly_classifier_function(): hello!')
     year = str(year)
-    tile_num = k.split('.')[0].split('/')[-1]
+    tile_num = k.split('/')[-1].split('.')[0]
     export_name = 'PArea' + process_num + '_tile' + tile_num + '_RF_' + year + '_' + run_type
     check_name = export_name + '.tif'
 
