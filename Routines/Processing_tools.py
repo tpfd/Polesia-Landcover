@@ -22,7 +22,6 @@ def tile_polygon(fpath_poly, tile_size, fp_export_dir, type_dir):
     # If .shp convert to geojson
     full_name = fpath_poly.split('/')[-1]
     name = full_name.split('.')[0]
-    filetype = fpath_poly.split('.')[1]
     gjsondir = os.path.dirname(fpath_poly) + '/'
 
     shp_file = geopandas.read_file(fpath_poly)

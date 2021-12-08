@@ -51,7 +51,7 @@ def map_target_area(fp_target_ext, fp_export_dir, years_to_map, scale, clf_compl
     tile_size = 0.15
     for i in process_list:
         print('map_target_area(): Generating tiles for processing area', str(i) + '...')
-        process_num = i.split('.')[0].split('/')[-1]
+        process_num = i.split('/')[-1].split('.')[0]
         tile_dir = tile_polygon(i, tile_size, fp_export_dir, process_num + '_tiles/')
 
         # Run the classification for the desired years over the processing areas and tiles
