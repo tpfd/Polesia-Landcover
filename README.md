@@ -9,7 +9,7 @@ Install of GeeMap and GeoPandas important information: https://geemap.org/instal
 Please note this is currently being tested as a beta version. If you have any issues feel free to raise them. Or even better, fix them and submit a pull request! 
 
 The code is written in Python 3.9, with the following libraries required in addition to a standard Python install:
-- Geemap
+- Geemap = 0.8.18
 - Geopandas
 - Pandas
 - Numpy
