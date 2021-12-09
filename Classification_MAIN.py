@@ -1,9 +1,13 @@
 import sys
 import os
+import ee
+ee.Initialize()
 from geemap import geemap
 
-sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
+
+#sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
 #sys.path.append("/home/markdj/repos/Polesia-Landcover/Routines/")
+sys.path.append("C:/Users/w1343424/Documents/GitHub/Polesia-Landcover/Routines/")
 from Classification_tools import RF_model_and_train, accuracy_assessment_basic, map_target_area
 
 print('\nClassification_MAIN(): hello!')
@@ -17,6 +21,7 @@ accuracy_eval_toggle = False
 # File paths and directories for classification pipeline
 #base_dir = '/home/markdj/Dropbox/artio/polesia'
 base_dir = 'D:/tpfdo/Documents/Artio_drive/Projects/Polesia'
+base_dir = 'C:/Users/w1343424/Dropbox/artio/polesia'
 
 fp_train_ext = f"{base_dir}/Project_area.shp"
 complex_training_fpath = f"{base_dir}/Training_data/Complex_points_2800.shp"
