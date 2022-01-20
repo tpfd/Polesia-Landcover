@@ -56,6 +56,8 @@ For the Complex classes, with optimal settings of 150 trees and 2800 training da
 
 ![image](https://user-images.githubusercontent.com/19290575/147233404-c1d37a0a-1403-4867-9919-cb38ca7db6fc.png)
 
+![image](https://user-images.githubusercontent.com/88330615/150327519-36a77448-afc7-4993-a282-24f4203fbd39.png)
+
 
 ## User guide
 Within “Classifcation_MAIN.py” there are the following toggles and paths to be aware of that you will need to customise to your own set up. All file paths are set up to build on top of your specified base directory, therefore the amount of files and folders you need to name and set up should be fairly minimal. For example, in the case of fp_train_ext, so long as you place the shapefile in your base directory all you need to do is make sure that name of the shapefile is the same as the name of the variable given. e.g. ‘Project_area.shp’.
