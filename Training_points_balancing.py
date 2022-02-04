@@ -99,3 +99,52 @@ for i in training_test:
                            'Simple')
 
 
+
+"""
+Reprocess simple meadows (original classes 63,64,65 -> simple class 1 dec forest)
+"""
+fpath = "C:/Users/w1343424/Dropbox/artio/polesia/Training_data/mdj_reprocess/Simple_points_rerun_v4_63_64_65_decforest.shp"
+raw_df = gpd.read_file(fpath)
+
+class_count = raw_df['VALUE'].value_counts()
+class_count.plot(kind='bar', legend=False, title='Simple training data classes - no balancing')
+plt.show()
+
+# training_test = [250, 500, 750, 1000, 1250, 1500, 1750, 2000,
+#                  2250, 2500, 2750, 2800, 2850, 2900, 3000,
+#                  3250, 3500, 4000, 4250, 4500, 4750, 5000]
+
+training_test = [5000]
+
+for i in training_test:
+    resample_training_data(i,
+                           raw_df,
+                           'Simple_points_rerun_v4_63_64_65_decforest_',
+                           "C:/Users/w1343424/Dropbox/artio/polesia/Training_data/mdj_reprocess/",
+                           'VALUE',
+                           'Simple')
+
+
+"""
+Reprocess simple meadows (original classes 63,64,65 -> simple class 1 swamp forest)
+"""
+fpath = "C:/Users/w1343424/Dropbox/artio/polesia/Training_data/mdj_reprocess/Simple_points_rerun_v4_63_64_65_swampforest.shp"
+raw_df = gpd.read_file(fpath)
+
+class_count = raw_df['VALUE'].value_counts()
+class_count.plot(kind='bar', legend=False, title='Simple training data classes - no balancing')
+plt.show()
+
+# training_test = [250, 500, 750, 1000, 1250, 1500, 1750, 2000,
+#                  2250, 2500, 2750, 2800, 2850, 2900, 3000,
+#                  3250, 3500, 4000, 4250, 4500, 4750, 5000]
+
+training_test = [5000]
+
+for i in training_test:
+    resample_training_data(i,
+                           raw_df,
+                           'Simple_points_rerun_v4_63_64_65_swampforest_',
+                           "C:/Users/w1343424/Dropbox/artio/polesia/Training_data/mdj_reprocess/",
+                           'VALUE',
+                           'Simple')
