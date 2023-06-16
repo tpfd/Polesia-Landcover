@@ -1,114 +1,86 @@
-import csv
-import calendar
 import ee
-import datetime
-from geemap import geemap
+import csv
 import pandas as pd
+import numpy as np
 
 
-def generate_days(years):
-    day_list = []
-    for year in years:
-        start_date = datetime.date(year, 1, 1)
-        end_date = datetime.date(year, 12, 31)
-        delta = datetime.timedelta(days=1)
-        current_date = start_date
-        while current_date <= end_date:
-            day_list.append(current_date.strftime("%Y-%m-%d"))
-            current_date += delta
-    return day_list
+def get_averages(latitude, longitude, date):
+    """
+    https://developers.google.com/earth-engine/datasets/catalog/NASA_GPM_L3_IMERG_V06#bands
+    https://developers.google.com/earth-engine/datasets/catalog/NASA_SMAP_SPL4SMGP_007#description
+    """
+    # Load required datasets
+    rainfall = ee.ImageCollection('NASA/GPM_L3/IMERG_V06').select('precipitationCal')
+    soil_moisture = ee.ImageCollection('NASA/SMAP/SPL4SMGP/007').select(['sm_rootzone_wetness'])
+
+    # Create a point from the input coordinates
+    point = ee.Geometry.Point(longitude, latitude)
+
+    # Create a 25 km buffer around the point
+    buffer_radius = 25000
+    buffer = point.buffer(buffer_radius)
+
+    # Convert date to Earth Engine's format and get the 3-day period around it
+    start_date = ee.Date(date).advance(-1, 'day')
+    end_date = ee.Date(date).advance(1, 'day')
+
+    # Filter datasets by date
+    rainfall_filtered = rainfall.filterDate(start_date, end_date)
+    soil_moisture_filtered = soil_moisture.filterDate(start_date, end_date)
+
+    # Check for data presence and extract the mean if there is data, otherwise set to np.nan
+    if rainfall_filtered.size().getInfo() >= 0:
+        rainfall_filtered_mean = rainfall_filtered.mean().reduceRegion(ee.Reducer.mean(),
+                                                                       geometry=buffer, scale=10000, crs='EPSG:4326',
+                                                                       bestEffort=True).get('precipitationCal')
+        if rainfall_filtered_mean.getInfo() is None:
+            rainfall_mean = np.nan
+        else:
+            rainfall_mean = np.around(rainfall_filtered_mean.getInfo(), decimals=4)
+    else:
+        rainfall_mean = np.nan
+
+    if soil_moisture_filtered.size().getInfo() >= 0:
+        soil_moisture_mean = soil_moisture_filtered.mean().reduceRegion(ee.Reducer.mean(),
+                                                                        geometry=buffer, scale=10000, crs='EPSG:4326',
+                                                                        bestEffort=True).get('sm_rootzone_wetness')
+        if soil_moisture_mean.getInfo() is None:
+            soil_moisture_mean = np.nan
+        else:
+            soil_moisture_mean = np.around(soil_moisture_mean.getInfo(), decimals=4)
+    else:
+        soil_moisture_mean = np.nan
+
+    return {
+        'rainfall_mean': rainfall_mean,
+        'soil_moisture_mean': soil_moisture_mean
+    }
 
 
-def generate_month_tuples(years):
-    month_tuples = []
-    for year in years:
-        for month in range(1, 13):
-            _, last_day = calendar.monthrange(year, month)
-            first_day = f"{year}-{month:02d}-01"
-            last_day = f"{year}-{month:02d}-{last_day:02d}"
-            month_tuple = (first_day, last_day)
-            month_tuples.append(month_tuple)
-    return month_tuples
+def save_data_to_csv(row, averages, file_path):
+    """
+    Apologies for the hack job... I'm tired and hungry.
+    Here is where the use of the multi-index to make a clean transition is supposed to happen.
+    Instead, I have done some pandas hokey-pokey.
+    """
+    new_row = pd.DataFrame(averages, index=[0]).transpose()
+    row_df = pd.Series.to_frame(row)
+    row_out = pd.concat([new_row, row_df.loc[:]]).reset_index(drop=False)
+    values_to_move = row_out.iloc[:2, 1].tolist()
+    row_out.iloc[:2, 2] = values_to_move
+    row_out = row_out.drop(row_out.columns[1], axis=1)
+    row_out.iloc[2, 0] = 'ID'
 
+    values = row_out.iloc[:, 1].tolist()
+    header = row_out['index'].tolist()
 
-def prepare_csv_for_gee(csv_path, longitude_column, latitude_column):
-    # Read the CSV file
-    with open(csv_path, 'r') as file:
-        reader = csv.reader(file)
-        headers = next(reader)  # Get the header row
-        data = [row for row in reader]  # Get the data rows
+    if not pd.io.common.file_exists(file_path):
+        mode = 'w'  # Create a new file if it doesn't exist
+    else:
+        mode = 'a'  # Append to existing file
 
-    # Prepare the features
-    features = []
-    for row in data:
-        longitude = float(row[longitude_column])
-        latitude = float(row[latitude_column])
-        properties = {header: row[i] for i, header in enumerate(headers) if i != longitude_column and i != latitude_column}
-        point = ee.Geometry.Point(longitude, latitude)
-        feature = ee.Feature(point, properties)
-        features.append(feature)
-
-    # Create an Earth Engine feature collection
-    feature_collection = ee.FeatureCollection(features)
-    return feature_collection, features
-
-
-def compute_daily_wetness(image_collection, start_date, end_date, region_of_interest):
-    # Filter Sentinel-1 GRD collection
-    collection = ee.ImageCollection(image_collection) \
-        .filterBounds(region_of_interest) \
-        .filterDate(start_date, end_date) \
-        .select('VV')
-
-    # Compute daily average backscatter
-    def compute_wetness(image):
-        wetness = image.multiply(-1).exp()
-        return wetness.rename('wetness').copyProperties(image, ['system:time_start'])
-
-    daily_wetness = collection.map(compute_wetness)
-    return daily_wetness
-
-
-def compute_weekly_wetness(image_collection, start_date, end_date, region_of_interest):
-    # Filter Sentinel-1 GRD collection
-    collection = ee.ImageCollection(image_collection) \
-        .filterBounds(region_of_interest) \
-        .filterDate(start_date, end_date) \
-        .select('VV')
-
-    # Compute weekly average backscatter
-    def compute_wetness(image):
-        start = image.date().advance(-3, 'day')
-        end = image.date().advance(3, 'day')
-        wetness = collection \
-            .filterDate(start, end) \
-            .mean() \
-            .multiply(-1).exp()
-        return wetness.rename('wetness').copyProperties(image, ['system:time_start'])
-
-    weekly_wetness = collection.map(compute_wetness)
-    return weekly_wetness
-
-
-def visualize_image_collection(image_collection):
-    # Create a Map instance
-    Map = geemap.Map()
-
-    # Add the image collection to the map
-    Map.addLayer(image_collection, {}, 'Image Collection')
-
-    # Center the map display on the extent of the image collection
-    bounds = image_collection.geometry().bounds().getInfo()['coordinates']
-    Map.fit_bounds(bounds)
-
-    # Display the map
-    Map
-    return
-
-
-def visualize_feature_collection(feature_collection):
-    # Convert feature collection to JSON
-    fc_json = geemap.ee_to_json(feature_collection)
-    # Show the feature collection in a new window
-    geemap.show_json(fc_json)
-    return
+    with open(file_path, mode, newline='') as file:
+        writer = csv.writer(file)
+        if mode == 'w':  # Write header if the file is new
+            writer.writerow(header)
+        writer.writerow(values)
