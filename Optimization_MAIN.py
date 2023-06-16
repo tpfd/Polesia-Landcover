@@ -2,7 +2,7 @@ import sys
 import os
 from geemap import geemap
 
-sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
+sys.path.append("C:/Users/tdow214/OneDrive - The University of Auckland/Documents/GitHub/Polesia-Landcover/Routines/")
 #sys.path.append("/home/markdj/repos/Polesia-Landcover/Routines/")
 from Classification_tools import trees_size_optimize, training_data_size_optimize
 

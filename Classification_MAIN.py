@@ -5,9 +5,7 @@ ee.Initialize()
 from geemap import geemap
 
 
-#sys.path.append("C:/Users/tpfdo/OneDrive/Documents/GitHub/Polesia-Landcover/Routines/")
-#sys.path.append("/home/markdj/repos/Polesia-Landcover/Routines/")
-sys.path.append("C:/Users/w1343424/Documents/GitHub/Polesia-Landcover/Routines/")
+sys.path.append("C:/Users/tdow214/OneDrive - The University of Auckland/Documents/GitHub/Polesia-Landcover/Routines/")
 from Classification_tools import RF_model_and_train, accuracy_assessment_basic, map_target_area
 
 print('\nClassification_MAIN(): hello!')
