@@ -17,7 +17,7 @@ def get_averages(latitude, longitude, date):
     point = ee.Geometry.Point(longitude, latitude)
 
     # Create a 25 km buffer around the point
-    buffer_radius = 25000
+    buffer_radius = 12000
     buffer = point.buffer(buffer_radius)
 
     # Convert date to Earth Engine's format and get the 3-day period around it
