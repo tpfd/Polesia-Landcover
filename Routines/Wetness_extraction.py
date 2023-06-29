@@ -30,9 +30,9 @@ for index, row in eagle_movement_df.iterrows():
     sentinel_out = get_sentinel_wetness(row['location.long'], row['location.lat'], row['date'])
     new_row_dict = {'index': index,
                     'S1 Soil Moisture': sentinel_out['S1 Soil Moisture'],
-                    'S1 Inundation binary mean': sentinel_out['S1 Inundation binary mean'],
+                    'S1 total pixel count': sentinel_out['S1 total pixel count'],
                     'S1 Inundation count': sentinel_out['S1 Inundation count'],
-                    'S2 Inundation binary mean': sentinel_out['S2 Inundation binary mean'],
+                    'S2 total pixel count': sentinel_out['S2 total pixel count'],
                     'S2 Inundation count': sentinel_out['S2 Inundation count']}
     save_dict_to_csv(new_row_dict, fp_out_data_movement)
 print('Done movement data extraction!')

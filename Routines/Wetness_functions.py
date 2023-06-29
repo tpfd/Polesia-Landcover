@@ -3,12 +3,14 @@ import os
 import pprint
 from Sentinel2_datahandling import *
 from Sentinel1_datahandling import *
-
+import matplotlib.pyplot as plt
+import numpy as np
 
 def count_nonzero_pixels(binary_mask, band_name):
     """
     Counts the number of non-zero pixels in a binary mask image.
     Returns the count as an integer.
+    Only works for binary image.
     """
     # Count non-zero pixels using reduceRegion with sum reducer
     count = binary_mask.reduceRegion(reducer=ee.Reducer.sum(),
@@ -21,19 +23,28 @@ def count_nonzero_pixels(binary_mask, band_name):
     return nonzero_count
 
 
-def count_non_nan_pixels(image, band_name):
-    if band_name is None:
-        mask = image.mask()
-        count = mask.reduceRegion(reducer=ee.Reducer.sum(), geometry=image.geometry(),
-                                  scale=image.projection().nominalScale())
-        count_value = count.values().get(0)
-    else:
-        mask = image.mask(band_name)
-        count = mask.reduceRegion(reducer=ee.Reducer.sum(), geometry=image.geometry(),
-                                  scale=image.projection().nominalScale())
-        count_value = count.values().get(0)
-
+def count_non_nan_pixels(image, selector):
+    count = image.reduceRegion(reducer=ee.Reducer.count(),
+                               geometry=image.select(selector).geometry(),
+                               scale=image.select(selector).projection().nominalScale())
+    count_value = ee.Number(count.get(selector))
     return count_value.getInfo()
+
+
+def hist(image_collection, selector, aoi):
+    # Compute histogram with automatic parameters
+    histogram = image_collection.reduceRegion(ee.Reducer.reduceHistogram(
+        scale=10, maxBuckets=500, region=aoi).getInfo())
+
+    # Convert the histogram to numpy arrays
+    a = np.array(histogram['histogram'])
+    x = a[:, 0]  # array of bucket edge positions
+    y = a[:, 1] / np.sum(a[:, 1])  # normalized array of bucket contents
+
+    # Plot the histogram
+    plt.grid()
+    plt.plot(x, y, '.')
+    plt.show()
 
 
 def get_sentinel_wetness(longitude, latitude, date):
@@ -43,7 +54,7 @@ def get_sentinel_wetness(longitude, latitude, date):
     date = '2017-07-05'
 
     Binary, 0 = no water visible
-    SM, higher numbers = dryer (I think)
+    SM, higher numbers = dryer
 
     S1 10 m pixel size: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S1_GRD
     S2 10 m pixel size: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_SR_HARMONIZED
@@ -63,15 +74,19 @@ def get_sentinel_wetness(longitude, latitude, date):
     s1_collection = ee.ImageCollection('COPERNICUS/S1_GRD') \
         .filterBounds(buffer) \
         .filterDate(start_date, end_date) \
-        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV')) \
-        .filter(ee.Filter.eq('instrumentMode', 'IW')) \
         .select('VV')
 
     if s1_collection.size().getInfo() > 0:
+        hist(s1_collection, 'VV', buffer)
+
         # Carry out pre-processing
+        print('De-speckling S1...')
         s1_mean_image = s1_collection.mean().clip(buffer)
         vv = s1_mean_image.select('VV')
         vv_smoothed = vv.focal_median(30, 'circle', 'meters').rename('VV_Filtered')  # De-speckle
+        s1_total_pixel_count = count_non_nan_pixels(vv_smoothed, 'VV_Filtered')
+
+        hist(vv_smoothed, 'V_Filtered', buffer)
 
         # Calculate SM using an alpha approximation on the temporal mean
         print('Calculating SM from S1...')
@@ -81,18 +96,10 @@ def get_sentinel_wetness(longitude, latitude, date):
         print('Calculating surface water from S1...')
         s1_surface_water_mask = calculate_water_under_canopy(vv_smoothed)
         s1_inundation_count = count_nonzero_pixels(s1_surface_water_mask, 'Water')
-
-        s1_non_nan_pixels = count_non_nan_pixels(vv_smoothed, None)
-        if s1_non_nan_pixels == 0:
-            print('No non nan pixels found in S1...')
-            s1_binary_mean = 'Thresholding/pixel error'
-        else:
-            s1_binary_mean = s1_inundation_count/s1_non_nan_pixels
-
     else:
         print('No S1 available')
         soil_moisture_value_out = np.nan
-        s1_binary_mean = np.nan
+        s1_total_pixel_count = np.nan
         s1_inundation_count = np.nan
 
     # Load Sentinel-2 optical image collection
@@ -101,39 +108,33 @@ def get_sentinel_wetness(longitude, latitude, date):
         .filterDate(start_date, end_date)
 
     if sentinel2.size().getInfo() > 0:
-        s2_image = sentinel2.sort('CLOUDY_PIXEL_PERCENTAGE').first().clip(buffer)
+        # Cloud mask
+        print('Masking cloud S2...')
+        s2_cloud_filtered = s2_cloud_masking(sentinel2, buffer)
+        s2_total_pixel_count = count_non_nan_pixels(s2_cloud_filtered, 'B3')
+        hist(s2_cloud_filtered, 'B3', buffer)
 
         # Calculate inundation binary using Sentinel-2
         print('Calculating S2 inundation...')
-        s2_inundation = calculate_s2_inundation(s2_image)
+        s2_inundation = calculate_s2_inundation(s2_cloud_filtered)
+        hist(s2_inundation, 'NDWI', buffer)
 
-        # Get the mean inundation binary value for the given 100 m area
+        # Get the mean inundation binary value for the given area
         s2_inundation_count = count_nonzero_pixels(s2_inundation, 'NDWI')
-
-        s2_non_nan_pixels = count_non_nan_pixels(s2_image, 'NDWI')
-        if s2_non_nan_pixels == 0:
-            print('No non nan pixels found in S2...')
-            s2_binary_mean = 'Thresholding/pixel error'
-        else:
-            s2_binary_mean = s2_inundation_count/s2_non_nan_pixels
-
     else:
         print('No S2 available')
         s2_inundation_count = np.nan
-        s2_binary_mean = np.nan
+        s2_total_pixel_count = np.nan
 
     result = {
         'S1 Soil Moisture': soil_moisture_value_out,
-        'S1 Inundation binary mean': s1_binary_mean,
+        'S1 total pixel count': s1_total_pixel_count,
         'S1 Inundation count': s1_inundation_count,
-        'S2 Inundation binary mean': s2_binary_mean,
+        'S2 total pixel count': s2_total_pixel_count,
         'S2 Inundation count': s2_inundation_count
     }
     pprint.pprint(result)
     return result
-
-
-
 
 
 

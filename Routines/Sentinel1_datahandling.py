@@ -4,9 +4,8 @@ import numpy as np
 
 def calculate_water_under_canopy(image):
     vv = image.select('VV_Filtered')
-    water = vv.lt(-12).rename('Water')  # Threshold here for reflectance
-    inundated = water.updateMask(water)
-    return inundated
+    water = vv.lt(-16).rename('Water')  # Threshold here for reflectance
+    return image.addBands(water)
 
 
 def compute_soil_moisture(image, aoi):
@@ -24,3 +23,5 @@ def compute_soil_moisture(image, aoi):
         return np.around(mean_soil_moisture_info, decimals=4)
     else:
         return np.nan
+
+
