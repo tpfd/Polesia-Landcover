@@ -1,21 +1,39 @@
-import ee
 import csv
 import os
-import numpy as np
+import pprint
+from Sentinel2_datahandling import *
+from Sentinel1_datahandling import *
 
 
-def calculate_surface_water(image):
-    # Apply threshold to classify surface water below tree canopy
-    tree_canopy = image.lt(-20)  # Example threshold value, adjust as needed
-    surface_water = image.multiply(tree_canopy)
-    return surface_water.rename('water')
+def count_nonzero_pixels(binary_mask, band_name):
+    """
+    Counts the number of non-zero pixels in a binary mask image.
+    Returns the count as an integer.
+    """
+    # Count non-zero pixels using reduceRegion with sum reducer
+    count = binary_mask.reduceRegion(reducer=ee.Reducer.sum(),
+                                     geometry=binary_mask.geometry(),
+                                     scale=binary_mask.projection().nominalScale(),
+                                     bestEffort=True).getInfo()
+
+    # Retrieve the count from the result
+    nonzero_count = count[band_name]
+    return nonzero_count
 
 
-def calculate_inundation(image):
-    ndwi = image.normalizedDifference(['B3', 'B8']).rename('NDWI')
-    threshold = 0.2
-    inundated = ndwi.gt(threshold)
-    return inundated
+def count_non_nan_pixels(image, band_name):
+    if band_name is None:
+        mask = image.mask()
+        count = mask.reduceRegion(reducer=ee.Reducer.sum(), geometry=image.geometry(),
+                                  scale=image.projection().nominalScale())
+        count_value = count.values().get(0)
+    else:
+        mask = image.mask(band_name)
+        count = mask.reduceRegion(reducer=ee.Reducer.sum(), geometry=image.geometry(),
+                                  scale=image.projection().nominalScale())
+        count_value = count.values().get(0)
+
+    return count_value.getInfo()
 
 
 def get_sentinel_wetness(longitude, latitude, date):
@@ -24,65 +42,99 @@ def get_sentinel_wetness(longitude, latitude, date):
     latitude = 52.7465083333
     date = '2017-07-05'
 
-    indunation binary, 0 = no water visible (but cannot see through canopy)
+    Binary, 0 = no water visible
+    SM, higher numbers = dryer (I think)
+
+    S1 10 m pixel size: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S1_GRD
+    S2 10 m pixel size: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_SR_HARMONIZED
     """
     # Set the point of interest (longitude, latitude)
     point = ee.Geometry.Point(longitude, latitude)
+
+    # 50 m radius data collect around that point (.5 to allow for corners and get 100x100)
+    buffer_radius = 50.5
+    buffer = point.buffer(buffer_radius)
 
     # Convert date to Earth Engine's format and get the 3-day period around it
     start_date = ee.Date(date).advance(-1, 'day')
     end_date = ee.Date(date).advance(1, 'day')
 
     # Load Sentinel-1 Synthetic Aperture Radar (SAR) collection
-    sentinel1 = ee.ImageCollection('COPERNICUS/S1_GRD') \
-        .filterBounds(point) \
+    s1_collection = ee.ImageCollection('COPERNICUS/S1_GRD') \
+        .filterBounds(buffer) \
         .filterDate(start_date, end_date) \
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV')) \
+        .filter(ee.Filter.eq('instrumentMode', 'IW')) \
         .select('VV')
 
-    if sentinel1.size().getInfo() > 0:
-        # Calculate SM using an alpha approximation
-        mean_image = sentinel1.mean()
-        soil_moisture = mean_image.expression('(10**((VV*0.1) + 1.3)) / 100.0', {'VV': mean_image})
-        soil_moisture_value = soil_moisture.sample(point, scale=10).first().get('constant')
-        soil_moisture_value_out = np.around(soil_moisture_value.getInfo(), decimals=3)
+    if s1_collection.size().getInfo() > 0:
+        # Carry out pre-processing
+        s1_mean_image = s1_collection.mean().clip(buffer)
+        vv = s1_mean_image.select('VV')
+        vv_smoothed = vv.focal_median(30, 'circle', 'meters').rename('VV_Filtered')  # De-speckle
+
+        # Calculate SM using an alpha approximation on the temporal mean
+        print('Calculating SM from S1...')
+        soil_moisture_value_out = compute_soil_moisture(vv_smoothed, buffer)
 
         # Calculate binary surface water using arbitrary canopy threshold
-        surface_water = sentinel1.map(calculate_surface_water).sum()
-        surface_water_value = surface_water.reduceRegion(
-            reducer=ee.Reducer.mean(),
-            geometry=point,
-            scale=10).get('water')
-        surface_water_value_out = surface_water_value.getInfo()
+        print('Calculating surface water from S1...')
+        s1_surface_water_mask = calculate_water_under_canopy(vv_smoothed)
+        s1_inundation_count = count_nonzero_pixels(s1_surface_water_mask, 'Water')
+
+        s1_non_nan_pixels = count_non_nan_pixels(vv_smoothed, None)
+        if s1_non_nan_pixels == 0:
+            print('No non nan pixels found in S1...')
+            s1_binary_mean = 'Thresholding/pixel error'
+        else:
+            s1_binary_mean = s1_inundation_count/s1_non_nan_pixels
+
     else:
+        print('No S1 available')
         soil_moisture_value_out = np.nan
-        surface_water_value_out = np.nan
+        s1_binary_mean = np.nan
+        s1_inundation_count = np.nan
 
     # Load Sentinel-2 optical image collection
-    sentinel2 = ee.ImageCollection('COPERNICUS/S2') \
-        .filterBounds(point) \
+    sentinel2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+        .filterBounds(buffer) \
         .filterDate(start_date, end_date)
 
-    if sentinel2.size().getInfo() >= 0:
-        # Calculate frequency of inundation using Sentinel-2
-        inundation = sentinel2.map(calculate_inundation).sum()
+    if sentinel2.size().getInfo() > 0:
+        s2_image = sentinel2.sort('CLOUDY_PIXEL_PERCENTAGE').first().clip(buffer)
 
-        # Get the inundation binary value for the given point
-        inundation_value = inundation.reduceRegion(
-            reducer=ee.Reducer.mean(),
-            geometry=point,
-            scale=10).get('NDWI')
-        inundation_value_out= inundation_value.getInfo()
+        # Calculate inundation binary using Sentinel-2
+        print('Calculating S2 inundation...')
+        s2_inundation = calculate_s2_inundation(s2_image)
+
+        # Get the mean inundation binary value for the given 100 m area
+        s2_inundation_count = count_nonzero_pixels(s2_inundation, 'NDWI')
+
+        s2_non_nan_pixels = count_non_nan_pixels(s2_image, 'NDWI')
+        if s2_non_nan_pixels == 0:
+            print('No non nan pixels found in S2...')
+            s2_binary_mean = 'Thresholding/pixel error'
+        else:
+            s2_binary_mean = s2_inundation_count/s2_non_nan_pixels
+
     else:
-        inundation_value_out = np.nan
-
+        print('No S2 available')
+        s2_inundation_count = np.nan
+        s2_binary_mean = np.nan
 
     result = {
         'S1 Soil Moisture': soil_moisture_value_out,
-        'S1 Surface Water binary': surface_water_value_out,
-        'S2 Inundation binary': inundation_value_out
+        'S1 Inundation binary mean': s1_binary_mean,
+        'S1 Inundation count': s1_inundation_count,
+        'S2 Inundation binary mean': s2_binary_mean,
+        'S2 Inundation count': s2_inundation_count
     }
-    print(result)
+    pprint.pprint(result)
     return result
+
+
+
+
 
 
 def get_averages_for_nests(latitude, longitude, date):
