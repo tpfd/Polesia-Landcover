@@ -1,10 +1,235 @@
-import ee
 import csv
-import pandas as pd
+import os
+import pprint
+from Sentinel2_datahandling import *
+from Sentinel1_datahandling import *
+import seaborn as sns
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
-def get_averages(latitude, longitude, date):
+def count_non_nan_pixels(image, selector):
+    """
+    Will count all pixels not actively masked, i.e. 1 and 0s if a binary array that has not had
+    the mask applied.
+    """
+    band = image.select(selector)
+    count = band.reduceRegion(reducer=ee.Reducer.count(),
+                              geometry=image.geometry(),
+                              scale=10,
+                              maxPixels=1e9)
+    count_value = count.get(selector).getInfo()
+    return count_value
+
+
+def compute_histogram(image, aoi, base_dir, site_name):
+    """
+    https://kaflekrishna.com.np/blog-detail/histogram-image-google-earth-engine-gee-python-api/
+
+    Only plots the histogram for you if you pass a site name. Otherwise just gives you the pixel counts.
+    """
+    plt.clf()
+    # Compute histogram for each image in the collection
+    histogramDictionary = image.reduceRegion(**{
+        'reducer': ee.Reducer.histogram(10),
+        'geometry': aoi,
+        'scale': 10,
+        'maxPixels': 1e19
+    })
+
+    # Plot the histogram using matplotlib
+    histogram = histogramDictionary.getInfo()
+    bands = list(histogram.keys())
+
+    for bnd in bands:
+        # plot a bar chart
+        y = histogram[bnd]['histogram']
+        x = []
+        for i in range(len(y)):
+            x.append(histogram[bnd]['bucketMin'] + i * histogram[bnd]['bucketWidth'])
+        data = pd.DataFrame({'x': np.around(x, decimals=4),
+                             'y': y})
+
+        if site_name:
+            # Draw Plot
+            sns.set(font_scale=2)
+            fig, ax = plt.subplots(figsize=(15, 15), dpi=150)
+            sns.barplot(
+                data=data,
+                x='x',
+                y='y',
+                ax=ax,
+                edgecolor="black",
+                facecolor="lightsteelblue")
+            # For every axis, set the x and y major locator
+            ax.xaxis.set_major_locator(plt.MaxNLocator(10))
+
+            # Adjust width gap to zero
+            for patch in ax.patches:
+                current_height = patch.get_width()
+                patch.set_width(1)
+                patch.set_y(patch.get_y() + current_height - 1)
+
+            # figure label and title
+            plt.title('Histogram for Band: {}'.format(bnd), fontsize=24)
+            plt.ylabel('Frequency', fontsize=24)
+            plt.xlabel('Pixel value', fontsize=24)
+            # save the figure as JPG file
+            save_dir = base_dir + '/Plots/'
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir)
+            fig.savefig(save_dir + site_name + '_fig-{}.jpg'.format(bnd))
+            plt.close()
+        return x, y
+
+
+def get_pixel_counts_from_hist(x_in, y_in):
+    try:
+        total_pixel_count = y_in[0] + y_in[1]
+        inundation_count = y_in[1]
+        water_flag = True
+    except:
+        total_pixel_count = y_in[0]
+        inundation_count = y_in[0]
+        if x_in[0] == 0:
+            water_flag = False
+        elif x_in[0] == 1:
+            water_flag = True
+        else:
+            print('Error in binary categories')
+    return int(total_pixel_count), int(inundation_count), water_flag
+
+
+def get_sentinel_wetness(longitude, latitude, date, base_dir, site_name):
+    """
+    longitude = 24.1325316667
+    latitude = 52.7465083333
+    date = '2017-07-05'
+
+    Binary, 0 = no water visible
+    SM, higher numbers = dryer
+
+    S1 10 m pixel size: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S1_GRD
+    S2 10 m pixel size: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_SR_HARMONIZED
+
+    If you pass a site name, it will save histograms.
+    """
+    # Set the point of interest (longitude, latitude)
+    point = ee.Geometry.Point(longitude, latitude)
+
+    # 50 m radius data collect around that point (.5 to allow for corners and get 100x100)
+    buffer_radius = 50.5
+    buffer = point.buffer(buffer_radius)
+
+    # Convert date to Earth Engine's format and get the 3-day period around it
+    start_date = ee.Date(date).advance(-1, 'day')
+    end_date = ee.Date(date).advance(1, 'day')
+
+    # Load Sentinel-1 Synthetic Aperture Radar (SAR) collection
+    s1_collection = ee.ImageCollection('COPERNICUS/S1_GRD') \
+        .filterBounds(buffer) \
+        .filterDate(start_date, end_date) \
+        .select('VV')
+
+    if s1_collection.size().getInfo() > 0:
+        # Carry out pre-processing
+        print('De-speckling S1...')
+        s1_mean_image = s1_collection.mean().clip(buffer)
+        vv = s1_mean_image.select('VV')
+        vv_smoothed = vv.focal_median(30, 'circle', 'meters').rename('VV_Filtered')  # De-speckle
+
+        s1_data_presence = count_non_nan_pixels(vv_smoothed, 'VV_Filtered')
+        if s1_data_presence > 0:
+            # Plot histograms if running tests
+            if site_name:
+                compute_histogram(vv_smoothed, buffer, base_dir, site_name)
+            else:
+                pass
+
+            # Calculate SM using an alpha approximation on the temporal mean
+            print('Calculating SM from S1...')
+            soil_moisture_value_out = compute_soil_moisture(vv_smoothed, buffer)
+
+            # Calculate binary surface water
+            print('Calculating surface water from S1...')
+            s1_masked_image, s1_water_threshold = calculate_water_under_canopy(vv_smoothed)
+            s1_x, s1_y = compute_histogram(s1_masked_image.select('S1 Surface Water Binary'),
+                                           buffer,
+                                           base_dir,
+                                           site_name)
+            s1_total_pixel_count, s1_inundation_count, water_flag = get_pixel_counts_from_hist(s1_x, s1_y)
+            if water_flag is True:
+                pass
+            else:
+                s1_inundation_count = 0
+
+        else:
+            print('S1 has no non-nan pixels!')
+            soil_moisture_value_out = np.nan
+            s1_total_pixel_count = np.nan
+            s1_inundation_count = np.nan
+
+    else:
+        print('No S1 available')
+        soil_moisture_value_out = np.nan
+        s1_total_pixel_count = np.nan
+        s1_inundation_count = np.nan
+
+    # Load Sentinel-2 optical image collection
+    sentinel2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+        .filterBounds(buffer) \
+        .filterDate(start_date, end_date)
+
+    if sentinel2.size().getInfo() > 0:
+        # Cloud mask
+        print('Masking cloud S2...')
+        s2_cloud_filtered = s2_cloud_masking(sentinel2, buffer)
+
+        s2_total_pixel_count = count_non_nan_pixels(s2_cloud_filtered, 'B3')
+        if s2_total_pixel_count > 0:
+            # Calculate inundation binary using Sentinel-2
+            print('Calculating S2 inundation...')
+            s2_inundation, ndwi_raw, ndwi_threshold = calculate_s2_inundation(s2_cloud_filtered)
+            s2_x, s2_y = compute_histogram(s2_inundation.select('S2 Surface Water Binary'),
+                                           buffer,
+                                           base_dir,
+                                           site_name)
+            s2_total_pixel_count, s2_inundation_count, water_flag = get_pixel_counts_from_hist(s2_x, s2_y)
+            if water_flag is True:
+                pass
+            else:
+                s2_inundation_count = 0
+
+            # Plot histograms if running tests
+            if site_name:
+                compute_histogram(s2_cloud_filtered.select('B3'), buffer, base_dir, site_name)
+                compute_histogram(s2_cloud_filtered.select('B8'), buffer, base_dir, site_name)
+                compute_histogram(s2_inundation.select('S2 Surface Water Binary'), buffer, base_dir, site_name)
+                compute_histogram(ndwi_raw.select('NDWI'), buffer, base_dir, site_name)
+            else:
+                pass
+        else:
+            print('S2 is all cloud!')
+            s2_inundation_count = np.nan
+            s2_total_pixel_count = np.nan
+    else:
+        print('No S2 available')
+        s2_inundation_count = np.nan
+        s2_total_pixel_count = np.nan
+
+    result = {
+        'S1 Soil Moisture': soil_moisture_value_out,
+        'S1 total pixel count': s1_total_pixel_count,
+        'S1 Inundation count': s1_inundation_count,
+        'S2 total pixel count': s2_total_pixel_count,
+        'S2 Inundation count': s2_inundation_count
+    }
+    pprint.pprint(result)
+    return result
+
+
+def get_averages_for_nests(latitude, longitude, date, home_range):
     """
     https://developers.google.com/earth-engine/datasets/catalog/NASA_GPM_L3_IMERG_V06#bands
     https://developers.google.com/earth-engine/datasets/catalog/NASA_SMAP_SPL4SMGP_007#description
@@ -17,7 +242,7 @@ def get_averages(latitude, longitude, date):
     point = ee.Geometry.Point(longitude, latitude)
 
     # Create a 25 km buffer around the point
-    buffer_radius = 25000
+    buffer_radius = home_range
     buffer = point.buffer(buffer_radius)
 
     # Convert date to Earth Engine's format and get the 3-day period around it
@@ -29,7 +254,7 @@ def get_averages(latitude, longitude, date):
     soil_moisture_filtered = soil_moisture.filterDate(start_date, end_date)
 
     # Check for data presence and extract the mean if there is data, otherwise set to np.nan
-    if rainfall_filtered.size().getInfo() >= 0:
+    if rainfall_filtered.size().getInfo() > 0:
         rainfall_filtered_mean = rainfall_filtered.mean().reduceRegion(ee.Reducer.mean(),
                                                                        geometry=buffer, scale=10000, crs='EPSG:4326',
                                                                        bestEffort=True).get('precipitationCal')
@@ -40,7 +265,7 @@ def get_averages(latitude, longitude, date):
     else:
         rainfall_mean = np.nan
 
-    if soil_moisture_filtered.size().getInfo() >= 0:
+    if soil_moisture_filtered.size().getInfo() > 0:
         soil_moisture_mean = soil_moisture_filtered.mean().reduceRegion(ee.Reducer.mean(),
                                                                         geometry=buffer, scale=10000, crs='EPSG:4326',
                                                                         bestEffort=True).get('sm_rootzone_wetness')
@@ -51,36 +276,19 @@ def get_averages(latitude, longitude, date):
     else:
         soil_moisture_mean = np.nan
 
-    return {
-        'rainfall_mean': rainfall_mean,
-        'soil_moisture_mean': soil_moisture_mean
-    }
+    result = {'Soil Moisture': soil_moisture_mean,
+              'Precipitation': rainfall_mean}
+    pprint.pprint(result)
+    return result
 
 
-def save_data_to_csv(row, averages, file_path):
-    """
-    Apologies for the hack job... I'm tired and hungry.
-    Here is where the use of the multi-index to make a clean transition is supposed to happen.
-    Instead, I have done some pandas hokey-pokey.
-    """
-    new_row = pd.DataFrame(averages, index=[0]).transpose()
-    row_df = pd.Series.to_frame(row)
-    row_out = pd.concat([new_row, row_df.loc[:]]).reset_index(drop=False)
-    values_to_move = row_out.iloc[:2, 1].tolist()
-    row_out.iloc[:2, 2] = values_to_move
-    row_out = row_out.drop(row_out.columns[1], axis=1)
-    row_out.iloc[2, 0] = 'ID'
+def save_dict_to_csv(data_dict, filename):
+    file_exists = os.path.isfile(filename)
 
-    values = row_out.iloc[:, 1].tolist()
-    header = row_out['index'].tolist()
+    with open(filename, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=data_dict.keys())
 
-    if not pd.io.common.file_exists(file_path):
-        mode = 'w'  # Create a new file if it doesn't exist
-    else:
-        mode = 'a'  # Append to existing file
+        if not file_exists:
+            writer.writeheader()
 
-    with open(file_path, mode, newline='') as file:
-        writer = csv.writer(file)
-        if mode == 'w':  # Write header if the file is new
-            writer.writerow(header)
-        writer.writerow(values)
+        writer.writerow(data_dict)
