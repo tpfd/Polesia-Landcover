@@ -152,11 +152,11 @@ def get_sentinel_wetness(longitude, latitude, date, base_dir, site_name):
             # Calculate binary surface water
             print('Calculating surface water from S1...')
             s1_masked_image, s1_water_threshold = calculate_water_under_canopy(vv_smoothed)
-            s1_inundation_list = compute_histogram(s1_masked_image.select('S1 Surface Water Binary'),
+            s1_x, s1_y = compute_histogram(s1_masked_image.select('S1 Surface Water Binary'),
                                                    buffer,
                                                    base_dir,
                                                    site_name)
-            s1_total_pixel_count, s1_inundation_count, water_flag = get_pixel_counts_from_hist(s1_inundation_list)
+            s1_total_pixel_count, s1_inundation_count, water_flag = get_pixel_counts_from_hist(s1_x, s1_y)
             if water_flag is True:
                 pass
             else:
@@ -189,11 +189,11 @@ def get_sentinel_wetness(longitude, latitude, date, base_dir, site_name):
             # Calculate inundation binary using Sentinel-2
             print('Calculating S2 inundation...')
             s2_inundation, ndwi_raw, ndwi_threshold = calculate_s2_inundation(s2_cloud_filtered)
-            s2_inundation_list = compute_histogram(s2_inundation.select('S2 Surface Water Binary'),
+            s2_x, s2_y = compute_histogram(s2_inundation.select('S2 Surface Water Binary'),
                                                    buffer,
                                                    base_dir,
                                                    site_name)
-            s2_total_pixel_count, s2_inundation_count, water_flag = get_pixel_counts_from_hist(s2_inundation_list)
+            s2_total_pixel_count, s2_inundation_count, water_flag = get_pixel_counts_from_hist(s2_x, s2_y)
             if water_flag is True:
                 pass
             else:
