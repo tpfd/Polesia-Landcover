@@ -3,9 +3,13 @@ import numpy as np
 
 
 def calculate_water_under_canopy(image):
+    """
+
+    """
     vv = image.select('VV_Filtered')
-    water = vv.lt(-16).rename('Water')  # Threshold here for reflectance
-    return image.addBands(water)
+    water_threshold = vv.lte(-16)  # Threshold here for reflectance
+    masked_image = water_threshold.rename('S1 Surface Water Binary')
+    return masked_image, water_threshold
 
 
 def compute_soil_moisture(image, aoi):

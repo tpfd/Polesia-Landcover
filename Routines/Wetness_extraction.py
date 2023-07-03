@@ -21,13 +21,12 @@ fp_target_flight_pts = f"{base_dir}/point_data_movement_v1.csv"
 fp_target_nest_pts = f"{base_dir}/point_data_nests.csv"
 fp_out_data_movement = f"{base_dir}/extracted_data_movement.csv"
 
-
 # Run movement data through earth engine and export to csv
 eagle_movement_df = pd.read_csv(fp_target_flight_pts)
 eagle_movement_df = eagle_movement_df.set_index([pd.to_datetime(eagle_movement_df['date']), 'event.id'], inplace=False)
 for index, row in eagle_movement_df.iterrows():
     print(row['location.long'], row['location.lat'], row['date'])
-    sentinel_out = get_sentinel_wetness(row['location.long'], row['location.lat'], row['date'])
+    sentinel_out = get_sentinel_wetness(row['location.long'], row['location.lat'], row['date'], base_dir, None)
     new_row_dict = {'index': index,
                     'S1 Soil Moisture': sentinel_out['S1 Soil Moisture'],
                     'S1 total pixel count': sentinel_out['S1 total pixel count'],

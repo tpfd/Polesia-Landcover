@@ -3,51 +3,103 @@ import os
 import pprint
 from Sentinel2_datahandling import *
 from Sentinel1_datahandling import *
-import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
-
-def count_nonzero_pixels(binary_mask, band_name):
-    """
-    Counts the number of non-zero pixels in a binary mask image.
-    Returns the count as an integer.
-    Only works for binary image.
-    """
-    # Count non-zero pixels using reduceRegion with sum reducer
-    count = binary_mask.reduceRegion(reducer=ee.Reducer.sum(),
-                                     geometry=binary_mask.geometry(),
-                                     scale=binary_mask.projection().nominalScale(),
-                                     bestEffort=True).getInfo()
-
-    # Retrieve the count from the result
-    nonzero_count = count[band_name]
-    return nonzero_count
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
 def count_non_nan_pixels(image, selector):
-    count = image.reduceRegion(reducer=ee.Reducer.count(),
-                               geometry=image.select(selector).geometry(),
-                               scale=image.select(selector).projection().nominalScale())
-    count_value = ee.Number(count.get(selector))
-    return count_value.getInfo()
+    """
+    Will count all pixels not actively masked, i.e. 1 and 0s if a binary array that has not had
+    the mask applied.
+    """
+    band = image.select(selector)
+    count = band.reduceRegion(reducer=ee.Reducer.count(),
+                              geometry=image.geometry(),
+                              scale=10,
+                              maxPixels=1e9)
+    count_value = count.get(selector).getInfo()
+    return count_value
 
 
-def hist(image_collection, selector, aoi):
-    # Compute histogram with automatic parameters
-    histogram = image_collection.reduceRegion(ee.Reducer.reduceHistogram(
-        scale=10, maxBuckets=500, region=aoi).getInfo())
+def compute_histogram(image, aoi, base_dir, site_name):
+    """
+    https://kaflekrishna.com.np/blog-detail/histogram-image-google-earth-engine-gee-python-api/
 
-    # Convert the histogram to numpy arrays
-    a = np.array(histogram['histogram'])
-    x = a[:, 0]  # array of bucket edge positions
-    y = a[:, 1] / np.sum(a[:, 1])  # normalized array of bucket contents
+    Only plots the histogram for you if you pass a site name. Otherwise just gives you the pixel counts.
+    """
+    plt.clf()
+    # Compute histogram for each image in the collection
+    histogramDictionary = image.reduceRegion(**{
+        'reducer': ee.Reducer.histogram(10),
+        'geometry': aoi,
+        'scale': 10,
+        'maxPixels': 1e19
+    })
 
-    # Plot the histogram
-    plt.grid()
-    plt.plot(x, y, '.')
-    plt.show()
+    # Plot the histogram using matplotlib
+    histogram = histogramDictionary.getInfo()
+    bands = list(histogram.keys())
+
+    for bnd in bands:
+        # plot a bar chart
+        y = histogram[bnd]['histogram']
+        x = []
+        for i in range(len(y)):
+            x.append(histogram[bnd]['bucketMin'] + i * histogram[bnd]['bucketWidth'])
+        data = pd.DataFrame({'x': np.around(x, decimals=4),
+                             'y': y})
+
+        if site_name:
+            # Draw Plot
+            fig, ax = plt.subplots(figsize=(15, 15), dpi=150)
+            sns.barplot(
+                data=data,
+                x='x',
+                y='y',
+                ax=ax
+            )
+            # For every axis, set the x and y major locator
+            ax.xaxis.set_major_locator(plt.MaxNLocator(10))
+
+            # Adjust width gap to zero
+            for patch in ax.patches:
+                current_height = patch.get_width()
+                patch.set_width(1)
+                patch.set_y(patch.get_y() + current_height - 1)
+
+            # figure label and title
+            plt.title('Histogram for Band: {}'.format(bnd), fontsize=24)
+            plt.ylabel('Frequency', fontsize=24)
+            plt.xlabel('Pixel value', fontsize=24)
+            # save the figure as JPG file
+            save_dir = base_dir+'/Plots/'
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir)
+            fig.savefig(save_dir+site_name+'_fig-{}.jpg'.format(bnd))
+            plt.close()
+        return x, y
 
 
-def get_sentinel_wetness(longitude, latitude, date):
+def get_pixel_counts_from_hist(x_in, y_in):
+    try:
+        total_pixel_count = y_in[0] + y_in[1]
+        inundation_count = y_in[1]
+        water_flag = True
+    except:
+        total_pixel_count = y_in[0]
+        inundation_count = y_in[0]
+        if x_in[0] == 0:
+            water_flag = False
+        elif x_in[0] == 1:
+            water_flag = True
+        else:
+            print('Error in binary categories')
+    return int(total_pixel_count), int(inundation_count), water_flag
+
+
+def get_sentinel_wetness(longitude, latitude, date, base_dir, site_name):
     """
     longitude = 24.1325316667
     latitude = 52.7465083333
@@ -58,6 +110,8 @@ def get_sentinel_wetness(longitude, latitude, date):
 
     S1 10 m pixel size: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S1_GRD
     S2 10 m pixel size: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_SR_HARMONIZED
+
+    If you pass a site name, it will save histograms.
     """
     # Set the point of interest (longitude, latitude)
     point = ee.Geometry.Point(longitude, latitude)
@@ -77,25 +131,43 @@ def get_sentinel_wetness(longitude, latitude, date):
         .select('VV')
 
     if s1_collection.size().getInfo() > 0:
-        hist(s1_collection, 'VV', buffer)
-
         # Carry out pre-processing
         print('De-speckling S1...')
         s1_mean_image = s1_collection.mean().clip(buffer)
         vv = s1_mean_image.select('VV')
         vv_smoothed = vv.focal_median(30, 'circle', 'meters').rename('VV_Filtered')  # De-speckle
-        s1_total_pixel_count = count_non_nan_pixels(vv_smoothed, 'VV_Filtered')
 
-        hist(vv_smoothed, 'V_Filtered', buffer)
+        s1_data_presence = count_non_nan_pixels(vv_smoothed, 'VV_Filtered')
+        if s1_data_presence > 0:
+            # Plot histograms if running tests
+            if site_name:
+                compute_histogram(vv_smoothed, buffer, base_dir, site_name)
+            else:
+                pass
 
-        # Calculate SM using an alpha approximation on the temporal mean
-        print('Calculating SM from S1...')
-        soil_moisture_value_out = compute_soil_moisture(vv_smoothed, buffer)
+            # Calculate SM using an alpha approximation on the temporal mean
+            print('Calculating SM from S1...')
+            soil_moisture_value_out = compute_soil_moisture(vv_smoothed, buffer)
 
-        # Calculate binary surface water using arbitrary canopy threshold
-        print('Calculating surface water from S1...')
-        s1_surface_water_mask = calculate_water_under_canopy(vv_smoothed)
-        s1_inundation_count = count_nonzero_pixels(s1_surface_water_mask, 'Water')
+            # Calculate binary surface water
+            print('Calculating surface water from S1...')
+            s1_masked_image, s1_water_threshold = calculate_water_under_canopy(vv_smoothed)
+            s1_inundation_list = compute_histogram(s1_masked_image.select('S1 Surface Water Binary'),
+                                                   buffer,
+                                                   base_dir,
+                                                   site_name)
+            s1_total_pixel_count, s1_inundation_count, water_flag = get_pixel_counts_from_hist(s1_inundation_list)
+            if water_flag is True:
+                pass
+            else:
+                s1_inundation_count = 0
+
+        else:
+            print('S1 has no non-nan pixels!')
+            soil_moisture_value_out = np.nan
+            s1_total_pixel_count = np.nan
+            s1_inundation_count = np.nan
+
     else:
         print('No S1 available')
         soil_moisture_value_out = np.nan
@@ -111,16 +183,34 @@ def get_sentinel_wetness(longitude, latitude, date):
         # Cloud mask
         print('Masking cloud S2...')
         s2_cloud_filtered = s2_cloud_masking(sentinel2, buffer)
+
         s2_total_pixel_count = count_non_nan_pixels(s2_cloud_filtered, 'B3')
-        hist(s2_cloud_filtered, 'B3', buffer)
+        if s2_total_pixel_count > 0:
+            # Calculate inundation binary using Sentinel-2
+            print('Calculating S2 inundation...')
+            s2_inundation, ndwi_raw, ndwi_threshold = calculate_s2_inundation(s2_cloud_filtered)
+            s2_inundation_list = compute_histogram(s2_inundation.select('S2 Surface Water Binary'),
+                                                   buffer,
+                                                   base_dir,
+                                                   site_name)
+            s2_total_pixel_count, s2_inundation_count, water_flag = get_pixel_counts_from_hist(s2_inundation_list)
+            if water_flag is True:
+                pass
+            else:
+                s2_inundation_count = 0
 
-        # Calculate inundation binary using Sentinel-2
-        print('Calculating S2 inundation...')
-        s2_inundation = calculate_s2_inundation(s2_cloud_filtered)
-        hist(s2_inundation, 'NDWI', buffer)
-
-        # Get the mean inundation binary value for the given area
-        s2_inundation_count = count_nonzero_pixels(s2_inundation, 'NDWI')
+            # Plot histograms if running tests
+            if site_name:
+                compute_histogram(s2_cloud_filtered.select('B3'), buffer, base_dir, site_name)
+                compute_histogram(s2_cloud_filtered.select('B8'), buffer, base_dir, site_name)
+                compute_histogram(s2_inundation.select('S2 Surface Water Binary'), buffer, base_dir, site_name)
+                compute_histogram(ndwi_raw.select('NDWI'), buffer, base_dir, site_name)
+            else:
+                pass
+        else:
+            print('S2 is all cloud!')
+            s2_inundation_count = np.nan
+            s2_total_pixel_count = np.nan
     else:
         print('No S2 available')
         s2_inundation_count = np.nan
