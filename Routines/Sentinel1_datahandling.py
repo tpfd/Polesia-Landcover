@@ -7,7 +7,7 @@ def calculate_water_under_canopy(image):
 
     """
     vv = image.select('VV_Filtered')
-    water_threshold = vv.lte(-16)  # Threshold here for reflectance
+    water_threshold = vv.lte(-14)  # Threshold here for reflectance. Set based on test sites.
     masked_image = water_threshold.rename('S1 Surface Water Binary')
     return masked_image, water_threshold
 

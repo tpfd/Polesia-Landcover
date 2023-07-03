@@ -53,13 +53,15 @@ def compute_histogram(image, aoi, base_dir, site_name):
 
         if site_name:
             # Draw Plot
+            sns.set(font_scale=2)
             fig, ax = plt.subplots(figsize=(15, 15), dpi=150)
             sns.barplot(
                 data=data,
                 x='x',
                 y='y',
-                ax=ax
-            )
+                ax=ax,
+                edgecolor="black",
+                facecolor="lightsteelblue")
             # For every axis, set the x and y major locator
             ax.xaxis.set_major_locator(plt.MaxNLocator(10))
 
@@ -74,10 +76,10 @@ def compute_histogram(image, aoi, base_dir, site_name):
             plt.ylabel('Frequency', fontsize=24)
             plt.xlabel('Pixel value', fontsize=24)
             # save the figure as JPG file
-            save_dir = base_dir+'/Plots/'
+            save_dir = base_dir + '/Plots/'
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            fig.savefig(save_dir+site_name+'_fig-{}.jpg'.format(bnd))
+            fig.savefig(save_dir + site_name + '_fig-{}.jpg'.format(bnd))
             plt.close()
         return x, y
 
@@ -153,9 +155,9 @@ def get_sentinel_wetness(longitude, latitude, date, base_dir, site_name):
             print('Calculating surface water from S1...')
             s1_masked_image, s1_water_threshold = calculate_water_under_canopy(vv_smoothed)
             s1_x, s1_y = compute_histogram(s1_masked_image.select('S1 Surface Water Binary'),
-                                                   buffer,
-                                                   base_dir,
-                                                   site_name)
+                                           buffer,
+                                           base_dir,
+                                           site_name)
             s1_total_pixel_count, s1_inundation_count, water_flag = get_pixel_counts_from_hist(s1_x, s1_y)
             if water_flag is True:
                 pass
@@ -190,9 +192,9 @@ def get_sentinel_wetness(longitude, latitude, date, base_dir, site_name):
             print('Calculating S2 inundation...')
             s2_inundation, ndwi_raw, ndwi_threshold = calculate_s2_inundation(s2_cloud_filtered)
             s2_x, s2_y = compute_histogram(s2_inundation.select('S2 Surface Water Binary'),
-                                                   buffer,
-                                                   base_dir,
-                                                   site_name)
+                                           buffer,
+                                           base_dir,
+                                           site_name)
             s2_total_pixel_count, s2_inundation_count, water_flag = get_pixel_counts_from_hist(s2_x, s2_y)
             if water_flag is True:
                 pass
@@ -227,8 +229,7 @@ def get_sentinel_wetness(longitude, latitude, date, base_dir, site_name):
     return result
 
 
-
-def get_averages_for_nests(latitude, longitude, date):
+def get_averages_for_nests(latitude, longitude, date, home_range):
     """
     https://developers.google.com/earth-engine/datasets/catalog/NASA_GPM_L3_IMERG_V06#bands
     https://developers.google.com/earth-engine/datasets/catalog/NASA_SMAP_SPL4SMGP_007#description
@@ -241,7 +242,7 @@ def get_averages_for_nests(latitude, longitude, date):
     point = ee.Geometry.Point(longitude, latitude)
 
     # Create a 25 km buffer around the point
-    buffer_radius = 12000
+    buffer_radius = home_range
     buffer = point.buffer(buffer_radius)
 
     # Convert date to Earth Engine's format and get the 3-day period around it
@@ -275,10 +276,10 @@ def get_averages_for_nests(latitude, longitude, date):
     else:
         soil_moisture_mean = np.nan
 
-    return {
-        'rainfall_mean': rainfall_mean,
-        'soil_moisture_mean': soil_moisture_mean
-    }
+    result = {'Soil Moisture': soil_moisture_mean,
+              'Precipitation': rainfall_mean}
+    pprint.pprint(result)
+    return result
 
 
 def save_dict_to_csv(data_dict, filename):

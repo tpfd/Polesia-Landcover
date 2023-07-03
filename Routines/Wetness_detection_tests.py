@@ -9,7 +9,7 @@ base_dir = 'C:/Users/tdow214/OneDrive - The University of Auckland/Documents/Pro
 fp_out_test_results = f"{base_dir}/wetness_test_results.csv"
 
 # Set locations and dates to be tested on
-test_locs = [(30.494743, 50.99985, '2018-06-01', 'Lake1'),
+test_locs = [(30.494743, 50.99985, '2018-06-01', 'Lake'),
              (30.371750, 51.053743, '2019-08-14', 'Braided streams and marsh'),
              (30.310367, 51.167084, '2018-08-25', 'Agroforestry regrowth'),
              (27.327553, 51.749287, '2018-05-01', 'Marsh and swamp')]
