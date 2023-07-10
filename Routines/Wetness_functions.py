@@ -217,7 +217,7 @@ def get_sentinel_wetness(longitude, latitude, date_in, base_dir, site_name):
         'S2 total pixel count': s2_total_pixel_count,
         'S2 Inundation count': s2_inundation_count
     }
-    pprint(result)
+    pprint.pprint(result)
     return result
 
 
@@ -237,6 +237,12 @@ def get_averages_for_nests(latitude, longitude, year, home_range, index_in, fp_o
     Assumes a year is given as a single YYYY int, returns monthly means for that year.
     https://developers.google.com/earth-engine/datasets/catalog/NASA_GPM_L3_IMERG_V06#bands
     https://developers.google.com/earth-engine/datasets/catalog/NASA_SMAP_SPL4SMGP_007#description
+
+    longitude = row['latitude']
+    latitude = row['longitude']
+    home_range = row['radius_km']
+    year = row['year']
+    index_in = new_index_in
     """
     # Load required datasets
     rainfall = ee.ImageCollection('NASA/GPM_L3/IMERG_V06').select('precipitationCal')
@@ -245,8 +251,11 @@ def get_averages_for_nests(latitude, longitude, year, home_range, index_in, fp_o
     # Create a point from the input coordinates
     point = ee.Geometry.Point(longitude, latitude)
 
-    # Create a buffer around the point
-    buffer_radius = home_range
+    # Create a buffer around the point, auto set to minimum 5km
+    if home_range < 5000:
+        buffer_radius = 5000
+    else:
+        buffer_radius = home_range
     buffer = point.buffer(buffer_radius)
 
     # Get monthly date ranges for the year and run them
@@ -287,7 +296,7 @@ def get_averages_for_nests(latitude, longitude, year, home_range, index_in, fp_o
         nests_new_row_dict = {'index': index_out,
                               'SM rootzone wetness': soil_moisture_mean,
                               'Precipitation': rainfall_mean}
-        pprint(nests_new_row_dict)
+        pprint.pprint(nests_new_row_dict)
         save_dict_to_csv(nests_new_row_dict, fp_out_nest)
     return
 
@@ -301,3 +310,15 @@ def save_dict_to_csv(data_dict, filename):
             writer.writeheader()
 
         writer.writerow(data_dict)
+
+
+def check_index_in_csv(csv_file, index_value):
+    file_exists = os.path.isfile(csv_file)
+    if not file_exists:
+        return False
+    with open(csv_file, 'r') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            if row[0] == str(index_value):
+                return True
+    return False
